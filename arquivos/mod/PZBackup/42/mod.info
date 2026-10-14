@@ -1,0 +1,4 @@
+name=PZ Backup
+id=PZBackupAhlr
+description=Backup do save: F8 faz backup, F9 restaura (o jogo fecha, restaura e reabre). Protecao contra morte. Requer o script pz-backup instalado pelo instalador do pacote.
+versionMin=42.0
