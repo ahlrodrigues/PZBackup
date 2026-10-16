@@ -10,12 +10,17 @@
 #   pz-backup.sh list      -> lista os backups existentes
 #   pz-backup.sh restore   -> restaura o backup mais recente (com o jogo FECHADO)
 #   pz-backup.sh restore N -> restaura o N-ésimo backup da lista (1 = mais recente)
+#   pz-backup.sh limpar    -> remove agora os saves de personagem morto (jogo FECHADO)
 #   pz-backup.sh jogo %command% -> para as Opções de Inicialização da Steam:
 #                     liga o backup automático junto com o jogo e desliga ao fechar
 #                     (também atende a tecla do mod PZ Backup, se instalado)
 
 INTERVALO=5                               # minutos entre backups automáticos
-MANTER=10                                 # quantos backups manter
+MANTER=10                                 # quantos backups manter (por mundo)
+MANTER_SUBST=5                            # quantos saves substituídos manter (no total)
+APAGAR_MORTOS=""                          # saves de personagem morto ao fechar o jogo:
+                                          #   vazio = segue a opção do mod (padrão: ligado)
+                                          #   1 = sempre remove, 0 = nunca remove
 # Pasta do jogo: detecta Steam nativa ou Steam Flatpak automaticamente.
 # (Dentro do Flatpak o $HOME já aponta para ~/.var/app/com.valvesoftware.Steam,
 #  então o mesmo script funciona dentro da Steam e no atalho de teclado.)
@@ -108,6 +113,12 @@ estado_personagem() {
     grep -q '^morto' "$est" && { echo morto; return; }
   fi
   # 2) Leitura direta do players.db
+  estado_db "$1"
+}
+
+# Só o players.db (sem o aviso do mod): "morto" se TODOS os personagens do save
+# estão mortos, "vivo" se algum está vivo, "desconhecido" se não der para ler
+estado_db() {
   local db="$1/players.db"
   [ -f "$db" ] && command -v python3 >/dev/null || { echo desconhecido; return; }
   python3 - "$db" <<'PY' 2>/dev/null || echo desconhecido
@@ -188,6 +199,53 @@ jogo_aberto() {
   pgrep -f '(^|/)ProjectZomboid(64|32)?( |$)|^[^ ]*java .*zombie\.gameStates\.MainScreenState' >/dev/null 2>&1
 }
 
+# Mantém só os MANTER_SUBST saves substituídos mais recentes (pela data no nome)
+limpar_substituidos() {
+  local dir="$DESTINO/substituidos" d
+  [ -d "$dir" ] || return 0
+  for d in "$dir"/*__*__*; do
+    [ -d "$d" ] && echo "${d##*__}|$d"
+  done | sort -r | cut -d'|' -f2- | tail -n +$((MANTER_SUBST + 1)) |
+    while IFS= read -r d; do rm -rf -- "$d"; done
+}
+
+# A opção "remover saves de personagem morto" está ligada?
+apagar_mortos_ativo() {
+  case "$APAGAR_MORTOS" in 1) return 0 ;; 0) return 1 ;; esac
+  local cfg="$LUA_DIR/pzbackup_config.txt"
+  [ -f "$cfg" ] || return 1               # sem o mod: não remove nada
+  grep -q '^apagar_mortos=1' "$cfg"
+}
+
+# Remove da pasta Saves os mundos onde o personagem morreu (só com o jogo FECHADO).
+# O save não é apagado na hora: vai para BackupsSaves/substituidos (os 5 mais recentes ficam).
+# Decide por mundo:
+#   - players.db diz "morto"                         -> remove
+#   - players.db diz "vivo"                          -> mantém (ex.: personagem novo no mesmo mundo)
+#   - players.db ilegível e o mod avisou morte nele   -> remove
+limpar_mortos() {
+  apagar_mortos_ativo || return 0
+  local est="$LUA_DIR/pzbackup_estado.txt" mundo_mod="" w modo mundo estado n=0
+  if [ -f "$est" ] && head -n1 "$est" | grep -q '^morto'; then
+    mundo_mod=$(sed -n 2p "$est" | tr -d '\r')
+  fi
+  mkdir -p "$DESTINO/substituidos"
+  for w in "$SAVES"/*/*/; do
+    w=${w%/}; [ -d "$w" ] || continue
+    modo=$(basename "$(dirname "$w")"); mundo=$(basename "$w")
+    [ "$modo" = Multiplayer ] && continue  # saves de servidor: nunca mexe
+    estado=$(estado_db "$w")
+    if [ "$estado" = morto ] || { [ "$estado" = desconhecido ] && [ -n "$mundo_mod" ] &&
+         { [ "$mundo_mod" = "$modo/$mundo" ] || [ "$mundo_mod" = "/$mundo" ]; }; }; then
+      mv "$w" "$DESTINO/substituidos/${modo}__${mundo}__$(date +%Y-%m-%d_%H-%M-%S)" &&
+        { avisar "Save de personagem morto removido de Carregar: $mundo (guardado em substituidos)"; n=$((n+1)); }
+    fi
+  done
+  [ -n "$mundo_mod" ] && printf 'limpo\n%s\n' "$mundo_mod" > "$est"   # aviso já tratado
+  [ $n -gt 0 ] && limpar_substituidos
+  return 0
+}
+
 # Núcleo da restauração: recebe o NOME do backup (sem perguntar nada)
 restaurar_nome() {
   local nome="$1" escolhido="$DESTINO/$1"
@@ -202,12 +260,25 @@ restaurar_nome() {
   # (fica fora da pasta Saves para não aparecer na lista de saves do jogo)
   mkdir -p "$DESTINO/substituidos" "$SAVES/$modo"
   [ -d "$destino_save" ] && mv "$destino_save" "$DESTINO/substituidos/${modo}__${mundo}__$(date +%Y-%m-%d_%H-%M-%S)"
+  limpar_substituidos
   if cp -a "$escolhido" "$destino_save"; then
     touch "$destino_save"                 # vira o save mais recente (topo da lista do jogo)
+    # O estado "morto" era do save antigo: não pode valer para o restaurado
+    [ -d "$LUA_DIR" ] && printf 'restaurado\n%s/%s\n' "$modo" "$mundo" > "$LUA_DIR/pzbackup_estado.txt"
     avisar "Save restaurado: $nome"
   else
     avisar "FALHA ao restaurar $nome" erro; return 1
   fi
+}
+
+# Lembrete exibido após cada restauração
+aviso_mods() {
+  cat <<'TXT'
+
+ATENÇÃO: o save restaurado volta com a lista de mods de quando o backup foi feito.
+Ao carregar, confira em Carregar > (seu save) > Mods: reative o PZ Backup e os mods
+que você usa, e desative os que não quiser. Se um mod não responder, desative e reative.
+TXT
 }
 
 # Restauração pelo terminal: escolhe pelo número da lista e pede confirmação
@@ -228,7 +299,7 @@ restaurar() {
   echo "Em:        $SAVES/${nome%%__*}/$(n=${nome#*__}; echo "${n%__*}")"
   read -rp "Confirmar restauração? (s/N): " ok
   [ "$ok" != "s" ] && { echo "Cancelado."; return 1; }
-  restaurar_nome "$nome" && echo "Pode abrir o jogo."
+  restaurar_nome "$nome" && { echo "Pode abrir o jogo."; aviso_mods; }
 }
 
 case "$1" in
@@ -236,6 +307,8 @@ case "$1" in
   loop)    ORIGEM="AUTO"; avisar "Backup automático a cada $INTERVALO min (Ctrl+C para parar)"
            while true; do sleep $((INTERVALO * 60)); fazer_backup; done ;;
   list)    listar ;;
+  limpar)  if jogo_aberto; then avisar "Feche o Project Zomboid antes de limpar" erro; exit 1; fi
+           ORIGEM="LIMPEZA"; APAGAR_MORTOS=1; limpar_mortos ;;
   jogo)    shift
            [ $# -eq 0 ] && { echo "Uso na Steam: $0 jogo %command%"; exit 1; }
            mkdir -p "$LUA_DIR"
@@ -274,16 +347,24 @@ case "$1" in
              if [ -f "$PEDIDO_RESTAURO" ]; then
                NOME=$(head -n1 "$PEDIDO_RESTAURO" | tr -d '\r')
                rm -f "$PEDIDO_RESTAURO"
+               # "AUTO modo/mundo" (morte com restauração automática): backup mais recente desse mundo
+               if [ "${NOME#AUTO }" != "$NOME" ]; then
+                 ALVO=${NOME#AUTO }
+                 NOME=$(ls -d "$DESTINO/${ALVO%%/*}__${ALVO#*/}__"* 2>/dev/null | sort -r | head -n1)
+                 NOME=${NOME##*/}
+                 [ -z "$NOME" ] && { ORIGEM="RESTAURO"; avisar "Sem backup de ${ALVO#*/} para restaurar automaticamente" erro; }
+               fi
                sleep 3                     # deixa o jogo terminar de gravar
                ORIGEM="RESTAURO"
-               if restaurar_nome "$NOME"; then
-                 avisar "Reabrindo o jogo com o backup restaurado"
+               if [ -n "$NOME" ] && restaurar_nome "$NOME"; then
+                 avisar "Reabrindo o jogo com o backup restaurado. Confira os mods do save ao carregar (reative/desative)"
                  continue
                fi
              fi
              ORIGEM="FINAL"; fazer_backup  # backup final, com o jogo já fechado
+             ORIGEM="LIMPEZA"; limpar_mortos # remove saves de personagem morto (se a opção estiver ligada)
              exit $RC
            done ;;
   restore) ORIGEM="RESTAURO"; restaurar "$2" ;;
-  *)       sed -n '2,16p' "$0" ;;
+  *)       sed -n '2,17p' "$0" ;;
 esac

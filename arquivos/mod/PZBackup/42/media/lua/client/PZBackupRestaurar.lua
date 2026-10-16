@@ -20,7 +20,7 @@ local FONTE = UIFont.Small
 ------------------------------------------------------------------------
 -- Fecha o jogo para o script restaurar
 ------------------------------------------------------------------------
-local function fecharJogo()
+function PZBackup.fecharJogo()
     local core = getCore()
     if getPlayer() then
         -- Em jogo: sai para a área de trabalho (o script restaura por cima)
@@ -28,6 +28,8 @@ local function fecharJogo()
     end
     pcall(function() core:quit() end)
 end
+
+local fecharJogo = PZBackup.fecharJogo
 
 ------------------------------------------------------------------------
 -- Janela
@@ -118,10 +120,12 @@ function PZBackupJanela:aoClicarRestaurar()
     end
     local texto = "Restaurar o backup:\n" .. item.text ..
         "\n\nO jogo vai FECHAR, o backup sera restaurado e o jogo REABRE sozinho." ..
-        "\nO progresso desde esse backup sera perdido (fica guardado em 'substituidos')."
+        "\nO progresso desde esse backup sera perdido (fica guardado em 'substituidos')." ..
+        "\n\nDEPOIS: ao carregar, confira os mods do save (Carregar > Mods)." ..
+        "\nReative o PZ Backup e os mods que usa; desative os que nao quiser."
     local dlg = ISModalDialog:new(
-        (getCore():getScreenWidth() - 460) / 2, (getCore():getScreenHeight() - 180) / 2,
-        460, 180, texto, true, self, PZBackupJanela.aoConfirmar, nil, item.item)
+        (getCore():getScreenWidth() - 520) / 2, (getCore():getScreenHeight() - 240) / 2,
+        520, 240, texto, true, self, PZBackupJanela.aoConfirmar, nil, item.item)
     dlg:initialise()
     dlg:addToUIManager()
     pcall(function() dlg:setAlwaysOnTop(true) end)

@@ -6,7 +6,8 @@
 
     pzbackup_pedido.txt     (mod -> script)  pedido de backup manual
     pzbackup_restaurar.txt  (mod -> script)  nome do backup a restaurar ao fechar o jogo
-    pzbackup_estado.txt     (mod -> script)  "vivo" ou "morto"
+    pzbackup_estado.txt     (mod -> script)  "vivo" ou "morto" + linha 2: modo/mundo
+    pzbackup_config.txt     (mod -> script)  opções que o script usa (apagar_mortos=1/0)
     pzbackup_status.txt     (script -> mod)  resultado de cada ação, mostrado na tela
     pzbackup_lista.txt      (script -> mod)  backups disponíveis: nome|rótulo
     pzbackup_ativo.txt      (script -> mod)  hora (Unix) do último sinal de vida do script
@@ -22,12 +23,16 @@ PZBackup.ARQ_ESTADO    = "pzbackup_estado.txt"
 PZBackup.ARQ_STATUS    = "pzbackup_status.txt"
 PZBackup.ARQ_LISTA     = "pzbackup_lista.txt"
 PZBackup.ARQ_ATIVO     = "pzbackup_ativo.txt"
+PZBackup.ARQ_CONFIG    = "pzbackup_config.txt"
 
 local TECLA_BACKUP_PADRAO    = Keyboard.KEY_F8
 local TECLA_RESTAURAR_PADRAO = Keyboard.KEY_F9
 local INTERVALO_LEITURA = 30   -- ticks entre leituras do status (~0,5 s)
 
-local opcaoBackup, opcaoRestaurar = nil, nil
+local opcaoBackup, opcaoRestaurar, opcaoApagarMortos, opcaoRestaurarAuto = nil, nil, nil, nil
+local APAGAR_MORTOS_PADRAO = true
+local RESTAURAR_AUTO_PADRAO = true
+PZBackup.SEGUNDOS_AUTO = 10          -- contagem antes de fechar o jogo e restaurar
 local ultimoStatusId = nil
 local contadorTicks = 0
 
@@ -114,7 +119,44 @@ local function criarOpcoes()
             "Abre a lista de backups. O jogo fecha, restaura e reabre sozinho.",
             function() if PZBackup.abrirJanela then PZBackup.abrirJanela() end end)
     end)
+    opcaoRestaurarAuto = tentar("restaurarAuto", function()
+        return opcoes:addTickBox("restaurarAuto", "Ao morrer, restaurar o backup mais recente automaticamente",
+            RESTAURAR_AUTO_PADRAO,
+            "Conta 10 s, fecha o jogo, restaura o backup mais recente deste mundo e reabre. Depois e so clicar em Continuar.")
+    end)
+    opcaoApagarMortos = tentar("apagarMortos", function()
+        return opcoes:addTickBox("apagarMortos", "Remover saves de personagem morto ao fechar o jogo",
+            APAGAR_MORTOS_PADRAO,
+            "Ao fechar o jogo, o save onde o personagem morreu sai da lista Carregar (vai para BackupsSaves/substituidos)")
+    end)
+    -- Chamado quando o jogador aplica as opções
+    pcall(function()
+        opcoes.apply = function() PZBackup.salvarConfig() end
+    end)
 end
+
+-- Grava as opções que o script precisa conhecer
+function PZBackup.apagarMortos()
+    if opcaoApagarMortos then
+        local ok, v = pcall(function() return opcaoApagarMortos:getValue() end)
+        if ok and v ~= nil then return v == true end
+    end
+    return APAGAR_MORTOS_PADRAO
+end
+
+function PZBackup.restaurarAuto()
+    if opcaoRestaurarAuto then
+        local ok, v = pcall(function() return opcaoRestaurarAuto:getValue() end)
+        if ok and v ~= nil then return v == true end
+    end
+    return RESTAURAR_AUTO_PADRAO
+end
+
+function PZBackup.salvarConfig()
+    PZBackup.gravar(PZBackup.ARQ_CONFIG,
+        "apagar_mortos=" .. (PZBackup.apagarMortos() and "1" or "0") .. "\n")
+end
+
 criarOpcoes()
 
 local function tecla(opcao, padrao)
@@ -150,6 +192,8 @@ local function aoPressionarTecla(k)
     if k == tecla(opcaoBackup, TECLA_BACKUP_PADRAO) then
         pedirBackup()
     elseif k == tecla(opcaoRestaurar, TECLA_RESTAURAR_PADRAO) then
+        -- F9 durante a contagem automática: cancela a contagem e abre a lista
+        if PZBackup.painelAuto then PZBackup.painelAuto:fechar() end
         if PZBackup.abrirJanela then PZBackup.abrirJanela() end
     end
 end
@@ -157,16 +201,55 @@ end
 ------------------------------------------------------------------------
 -- Estado do personagem (o script não faz backup se estiver "morto")
 ------------------------------------------------------------------------
+-- "modo/mundo" do save carregado (mesma estrutura da pasta Saves/<modo>/<mundo>)
+function PZBackup.mundoAtual()
+    local modo, mundo = "", ""
+    pcall(function() modo = tostring(getWorld():getGameMode() or "") end)
+    pcall(function() mundo = tostring(getWorld():getWorld() or "") end)
+    return modo .. "/" .. mundo
+end
+
+local mundoAtual = PZBackup.mundoAtual
+
+-- Existe backup deste mundo na lista gerada pelo script?
+function PZBackup.temBackupDoMundo(modoMundo)
+    local modo, mundo = modoMundo:match("^([^/]*)/(.*)$")
+    if not mundo or mundo == "" then return false end
+    local prefixo = modo .. "__" .. mundo .. "__"
+    for _, linha in ipairs(PZBackup.lerLinhas(PZBackup.ARQ_LISTA)) do
+        if linha:sub(1, #prefixo) == prefixo then return true end
+    end
+    return false
+end
+
 local function marcarVivo()
     local p = getPlayer()
-    if p and p:isDead() then return end
-    PZBackup.gravar(PZBackup.ARQ_ESTADO, "vivo\n")
+    if not p or p:isDead() then return end
+    PZBackup.gravar(PZBackup.ARQ_ESTADO, "vivo\n" .. mundoAtual() .. "\n")
+end
+
+-- Personagem novo criado no mesmo mundo depois de morrer: volta a ser "vivo"
+local function aoCriarPersonagem(_, jogador)
+    local p = jogador or getPlayer()
+    if p and p == getPlayer() and not p:isDead() then marcarVivo() end
 end
 
 local function aoMorrer(jogador)
     if jogador == getPlayer() then
-        PZBackup.gravar(PZBackup.ARQ_ESTADO, "morto\n")
-        PZBackup.mostrar("PZ Backup: aperte F9 para restaurar um backup", true)
+        local mm = mundoAtual()
+        PZBackup.gravar(PZBackup.ARQ_ESTADO, "morto\n" .. mm .. "\n")
+        if PZBackup.restaurarAuto() and PZBackup.scriptAtivo() and PZBackup.temBackupDoMundo(mm)
+           and PZBackup.iniciarRestauracaoAuto then
+            PZBackup.iniciarRestauracaoAuto(mm)
+        elseif not PZBackup.scriptAtivo() then
+            PZBackup.mostrar("Morto. Script de backup parado: sem restauracao automatica", true)
+        elseif PZBackup.restaurarAuto() and not PZBackup.temBackupDoMundo(mm) then
+            PZBackup.mostrar("Morto. Nao ha backup deste mundo para restaurar", true)
+        elseif PZBackup.apagarMortos() then
+            PZBackup.mostrar("Morto. Ao fechar o jogo este save sera removido. F9 restaura um backup", true)
+        else
+            PZBackup.mostrar("PZ Backup: aperte F9 para restaurar um backup", true)
+        end
     end
 end
 
@@ -194,6 +277,9 @@ end
 -- Eventos
 ------------------------------------------------------------------------
 Events.OnGameStart.Add(marcarVivo)
+Events.OnGameStart.Add(PZBackup.salvarConfig)
+if Events.OnMainMenuEnter then Events.OnMainMenuEnter.Add(PZBackup.salvarConfig) end
+if Events.OnCreatePlayer then Events.OnCreatePlayer.Add(aoCriarPersonagem) end
 Events.OnKeyPressed.Add(aoPressionarTecla)
 Events.OnPlayerDeath.Add(aoMorrer)
 Events.OnTick.Add(lerStatus)
