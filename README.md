@@ -1,4 +1,4 @@
-# PZ Backup — backup de saves para Project Zomboid (Build 42)
+# PZBackup — backup de saves para Project Zomboid (Build 42)
 
 Faz cópias do seu save **enquanto você joga**: automaticamente a cada 5 minutos e
 quando você aperta uma tecla. Se o personagem morrer, você restaura um backup de
