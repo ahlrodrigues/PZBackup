@@ -100,7 +100,7 @@ function PZBackupJanela:carregar()
     if #self.lista.items > 0 then self.lista.selected = 1 end
 
     if not PZBackup.scriptAtivo() then
-        self:avisar("Script de backup nao esta rodando: restaurar nao vai funcionar.", true)
+        self:avisar("Script de backup nao esta rodando. Instale: " .. PZBackup.URL, true)
     elseif #self.lista.items == 0 then
         self:avisar("Nenhum backup encontrado.", true)
     else

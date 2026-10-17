@@ -24,6 +24,7 @@ PZBackup.ARQ_STATUS    = "pzbackup_status.txt"
 PZBackup.ARQ_LISTA     = "pzbackup_lista.txt"
 PZBackup.ARQ_ATIVO     = "pzbackup_ativo.txt"
 PZBackup.ARQ_CONFIG    = "pzbackup_config.txt"
+PZBackup.URL           = "github.com/ahlrodrigues/PZBackup"   -- onde baixar o script
 
 local TECLA_BACKUP_PADRAO    = Keyboard.KEY_F8
 local TECLA_RESTAURAR_PADRAO = Keyboard.KEY_F9
@@ -178,7 +179,7 @@ local function pedirBackup()
         return
     end
     if not PZBackup.scriptAtivo() then
-        PZBackup.mostrar("Script de backup nao esta rodando", true)
+        PZBackup.mostrar("Script de backup nao esta rodando. Instale: " .. PZBackup.URL, true)
         return
     end
     if PZBackup.gravar(PZBackup.ARQ_PEDIDO, "save " .. tostring(getTimestamp()) .. "\n") then
@@ -278,6 +279,13 @@ end
 ------------------------------------------------------------------------
 Events.OnGameStart.Add(marcarVivo)
 Events.OnGameStart.Add(PZBackup.salvarConfig)
+-- Quem instalou só o mod (ex.: pela Workshop) fica sabendo que falta o script
+Events.OnGameStart.Add(function()
+    if not PZBackup.scriptAtivo() then
+        print("[PZBackup] script de backup nao detectado. Instale: https://" .. PZBackup.URL)
+        PZBackup.mostrar("PZ Backup: script nao detectado. Instale: " .. PZBackup.URL, true)
+    end
+end)
 if Events.OnMainMenuEnter then Events.OnMainMenuEnter.Add(PZBackup.salvarConfig) end
 if Events.OnCreatePlayer then Events.OnCreatePlayer.Add(aoCriarPersonagem) end
 Events.OnKeyPressed.Add(aoPressionarTecla)

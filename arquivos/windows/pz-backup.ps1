@@ -1,4 +1,5 @@
 # pz-backup.ps1 — Backup periódico e manual do save do Project Zomboid (Windows)
+# Versao 1.0.0 — https://github.com/ahlrodrigues/PZBackup — Licenca MIT
 #
 # Uso (PowerShell):
 #   pz-backup.ps1 save        -> faz um backup agora
@@ -316,5 +317,5 @@ switch ($Acao) {
                 $n = Read-Host "`nNumero do backup para restaurar (Enter = cancelar)"
                 if ($n -match '^\d+$') { Restaurar ([int]$n) } else { Write-Host "Cancelado." }
                 Read-Host "`nPressione Enter para fechar" | Out-Null }
-    default   { Get-Content $PSCommandPath -TotalCount 13 | Select-Object -Skip 1 }
+    default   { Get-Content $PSCommandPath -TotalCount 14 | Select-Object -Skip 1 }
 }

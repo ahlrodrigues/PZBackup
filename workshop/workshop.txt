@@ -1,0 +1,29 @@
+version=1
+title=PZ Backup
+description=[h1]PZ Backup — save backups while you play[/h1]
+description=Automatic backups every 5 minutes, [b]F8[/b] for a backup now, [b]F9[/b] to restore — and when your character dies, the latest backup is restored by itself: the game closes, restores, reopens, and you just click [b]Continue[/b].
+description=
+description=[h2]⚠ Requires the PZ Backup script[/h2]
+description=Project Zomboid's Lua cannot copy folders, so the backups are made by a small script that runs alongside the game (Linux and Windows).
+description=[b]Install it from:[/b] [url=https://github.com/ahlrodrigues/PZBackup/releases]github.com/ahlrodrigues/PZBackup[/url]
+description=Without the script the mod only shows a warning.
+description=
+description=[h2]Features[/h2]
+description=[list]
+description=[*]Automatic backup every 5 min while the game is open, plus a final backup when it closes
+description=[*][b]F8[/b] manual backup, [b]F9[/b] restore window (keys configurable in Options → Mods)
+description=[*]Auto-restore on death with a 10 s countdown (Restore now / Choose another / Cancel)
+description=[*]Never backs up a dead character — your good backups are kept
+description=[*]Optional cleanup: the dead character's save leaves the Load list when the game closes
+description=[*]Keeps the 10 latest backups per world; replaced saves are kept in a safety folder
+description=[/list]
+description=
+description=[h2]Português[/h2]
+description=Backup automático do save enquanto você joga: a cada 5 minutos, [b]F8[/b] para salvar agora e [b]F9[/b] para restaurar. Ao morrer, o backup mais recente é restaurado sozinho — o jogo fecha, restaura e reabre; é só clicar em [b]Continuar[/b].
+description=[b]Requer o script PZ Backup:[/b] [url=https://github.com/ahlrodrigues/PZBackup/releases]github.com/ahlrodrigues/PZBackup[/url] (Linux e Windows).
+description=
+description=[h2]Build[/h2]
+description=Build 42 only. Single player.
+description=Mod ID: PZBackupAhlr
+tags=Build 42;Interface;Misc
+visibility=private
