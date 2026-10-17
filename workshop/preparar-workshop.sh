@@ -18,6 +18,11 @@ mkdir -p "$DEST/Contents/mods"
 cp -r "$REPO/arquivos/mod/PZBackup" "$DEST/Contents/mods/PZBackup"
 rm -f "$DEST/Contents/mods/PZBackup/common/.gitkeep"
 mkdir -p "$DEST/Contents/mods/PZBackup/common"
+# O enviador da Workshop procura o mod.info também na raiz da pasta do mod
+# (além de 42/), senão recusa com "missing a mod.info file"
+cp "$DEST/Contents/mods/PZBackup/42/mod.info"   "$DEST/Contents/mods/PZBackup/mod.info"
+cp "$DEST/Contents/mods/PZBackup/42/poster.png" "$DEST/Contents/mods/PZBackup/poster.png"
+cp "$DEST/Contents/mods/PZBackup/42/icon.png"   "$DEST/Contents/mods/PZBackup/icon.png"
 cp "$REPO/workshop/preview.png" "$DEST/preview.png"
 { [ -n "$ID" ] && echo "$ID"; cat "$REPO/workshop/workshop.txt"; } > "$DEST/workshop.txt"
 

@@ -1,7 +1,8 @@
 # PZ Backup — backup de saves para Project Zomboid (Build 42)
 
 **Repositório e downloads:** <https://github.com/ahlrodrigues/PZBackup/releases> ·
-*English:* [README.md](README.md) · Versão 1.0.0 · Licença [MIT](LICENSE)
+*English:* [README.md](README.md) · Versão 1.0.1 · Licença [MIT](LICENSE)
+**Steam Workshop:** <https://steamcommunity.com/sharedfiles/filedetails/?id=3821180981> · Mod ID `PZBackupAHLR` · Workshop ID `3821180981`
 
 Faz cópias do seu save **enquanto você joga**: automaticamente a cada 5 minutos e
 quando você aperta uma tecla. Se o personagem morrer, você restaura um backup de
@@ -56,6 +57,10 @@ quando ele não é encontrado. No Windows não é preciso instalar nada.
 
 > **Antes de instalar:** abra o Project Zomboid pelo menos uma vez, para a pasta
 > `Zomboid` existir.
+
+> **Mod pela Workshop:** se preferir, [inscreva-se no mod na Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3821180981) e use o
+> pacote só para o script. Não mantenha ao mesmo tempo o mod da Workshop e a cópia em
+> `Zomboid/mods/PZBackup`: os dois têm o mesmo Mod ID.
 
 ---
 

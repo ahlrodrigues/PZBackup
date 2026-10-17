@@ -2,6 +2,8 @@
 
 **Português:** veja o [LEIAME.md](LEIAME.md) para a documentação completa em português.
 
+**Steam Workshop:** [PZ Backup](https://steamcommunity.com/sharedfiles/filedetails/?id=3821180981) · Mod ID `PZBackupAHLR` · Workshop ID `3821180981`
+
 Backs up your save **while you play** — automatically every 5 minutes and whenever you
 press a key. If your character dies, PZ Backup can restore the latest backup by itself:
 the game closes, the save is restored, the game reopens and you just click **Continue**.
@@ -20,7 +22,7 @@ the game closes, the save is restored, the game reopens and you just click **Con
 
 Project Zomboid's Lua sandbox cannot copy folders. So PZ Backup has:
 
-1. **The mod** (Steam Workshop or `mods/` folder): keys, restore window, on-screen
+1. **The mod** ([Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3821180981) or `mods/` folder): keys, restore window, on-screen
    messages, death detection, options.
 2. **The script** (this repository): does the actual copying. Bash on Linux,
    PowerShell on Windows.
@@ -59,6 +61,10 @@ Windows, launching straight from Steam does not start the automatic backup.
 ### Then, in game
 
 Main menu → **Mods** → enable **PZ Backup** (also in your save's mod list).
+
+> Prefer the Workshop? [Subscribe to the mod](https://steamcommunity.com/sharedfiles/filedetails/?id=3821180981) and install **only the script**
+> from the Release. Do not keep the Workshop mod and the `mods/PZBackup` copy at the
+> same time — they share the same Mod ID.
 
 ## Restoring
 

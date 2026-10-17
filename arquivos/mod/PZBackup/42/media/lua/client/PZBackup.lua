@@ -96,7 +96,7 @@ local function criarOpcoes()
         return
     end
     local ok, opcoes = pcall(function()
-        return PZAPI.ModOptions:create("PZBackupAhlr", "PZ Backup")
+        return PZAPI.ModOptions:create("PZBackupAHLR", "PZ Backup")
     end)
     if not (ok and opcoes) then
         print("[PZBackup] falha ao criar opções: " .. tostring(opcoes))

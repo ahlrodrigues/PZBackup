@@ -3,6 +3,19 @@
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/);
 versões seguem [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.0.1] - 2026-10-16
+
+### Alterado
+- **Mod ID agora é `PZBackupAHLR`** (antes `PZBackupAhlr`). Quem já usava o mod precisa
+  reativá-lo nos saves (*Carregar → save → Mods*); as opções do mod voltam ao padrão.
+- Descrição da Workshop: linha de Build atualizada (testado na 42.21.0) e Mod ID
+  duplicado removido — o jogo já acrescenta `Workshop ID` e `Mod ID` sozinho.
+- Links para a página da Workshop no README e no LEIAME.
+
+### Corrigido
+- `preparar-workshop.sh` copia o `mod.info` também para a raiz da pasta do mod; sem
+  isso o envio à Workshop falhava ("missing a mod.info file").
+
 ## [1.0.0] - 2026-10-16
 
 Primeira versão pública.
@@ -22,4 +35,5 @@ Primeira versão pública.
 - Instaladores para Linux (Steam nativa e Flatpak) e Windows 10/11.
 - Aviso no jogo, com o endereço do repositório, quando o script não está instalado.
 
+[1.0.1]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.0.1
 [1.0.0]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.0.0

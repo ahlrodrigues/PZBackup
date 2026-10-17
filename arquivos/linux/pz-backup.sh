@@ -1,6 +1,6 @@
 #!/bin/bash
 # pz-backup.sh — Backup periódico e manual do save do Project Zomboid (Linux)
-# Versão 1.0.0 — https://github.com/ahlrodrigues/PZBackup — Licença MIT
+# Versão 1.0.1 — https://github.com/ahlrodrigues/PZBackup — Licença MIT
 #
 # Requisitos: bash. Recomendado: python3 (bipes e checagem de morte pelo players.db)
 #             e paplay/pw-play/aplay (som). Sem python3 o backup funciona normalmente.

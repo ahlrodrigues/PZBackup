@@ -1,5 +1,5 @@
 # pz-backup.ps1 — Backup periódico e manual do save do Project Zomboid (Windows)
-# Versao 1.0.0 — https://github.com/ahlrodrigues/PZBackup — Licenca MIT
+# Versao 1.0.1 — https://github.com/ahlrodrigues/PZBackup — Licenca MIT
 #
 # Uso (PowerShell):
 #   pz-backup.ps1 save        -> faz um backup agora
