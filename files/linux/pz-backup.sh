@@ -1,6 +1,6 @@
 #!/bin/bash
 # pz-backup.sh — Backup periódico e manual do save do Project Zomboid (Linux)
-# Versão 1.0.1 — https://github.com/ahlrodrigues/PZBackup — Licença MIT
+# Versão 1.1.1 — https://github.com/ahlrodrigues/PZBackup — Licença MIT
 #
 # Requisitos: bash. Recomendado: python3 (bipes e checagem de morte pelo players.db)
 #             e paplay/pw-play/aplay (som). Sem python3 o backup funciona normalmente.
@@ -12,6 +12,7 @@
 #   pz-backup.sh restore   -> restaura o backup mais recente (com o jogo FECHADO)
 #   pz-backup.sh restore N -> restaura o N-ésimo backup da lista (1 = mais recente)
 #   pz-backup.sh limpar    -> remove agora os saves de personagem morto (jogo FECHADO)
+#   pz-backup.sh log       -> mostra as últimas linhas do log
 #   pz-backup.sh jogo %command% -> para as Opções de Inicialização da Steam:
 #                     liga o backup automático junto com o jogo e desliga ao fechar
 #                     (também atende a tecla do mod PZ Backup, se instalado)
@@ -88,13 +89,39 @@ sem_acento() {
   LC_ALL=C sed 's/á/a/g; s/à/a/g; s/â/a/g; s/ã/a/g; s/ä/a/g; s/é/e/g; s/è/e/g; s/ê/e/g; s/ë/e/g; s/í/i/g; s/ì/i/g; s/î/i/g; s/ï/i/g; s/ó/o/g; s/ò/o/g; s/ô/o/g; s/õ/o/g; s/ö/o/g; s/ú/u/g; s/ù/u/g; s/û/u/g; s/ü/u/g; s/ç/c/g; s/ñ/n/g; s/Á/A/g; s/À/A/g; s/Â/A/g; s/Ã/A/g; s/Ä/A/g; s/É/E/g; s/È/E/g; s/Ê/E/g; s/Ë/E/g; s/Í/I/g; s/Ì/I/g; s/Î/I/g; s/Ï/I/g; s/Ó/O/g; s/Ò/O/g; s/Ô/O/g; s/Õ/O/g; s/Ö/O/g; s/Ú/U/g; s/Ù/U/g; s/Û/U/g; s/Ü/U/g; s/Ç/C/g; s/Ñ/N/g; s/—/-/g'
 }
 
+# Idioma das mensagens: o que o mod informou (idioma=pt|en em pzbackup_config.txt);
+# sem o mod, segue o idioma do sistema (pt_* -> português, senão inglês)
+IDIOMA=""                                 # vazio = automático; "pt" ou "en" força
+idioma() {
+  if [ -n "$IDIOMA" ]; then echo "$IDIOMA"; return; fi
+  local cfg="$LUA_DIR/pzbackup_config.txt"
+  if   grep -q '^idioma=en' "$cfg" 2>/dev/null; then echo en
+  elif grep -q '^idioma=pt' "$cfg" 2>/dev/null; then echo pt
+  else case "${LC_ALL:-${LC_MESSAGES:-$LANG}}" in pt*) echo pt ;; *) echo en ;; esac
+  fi
+}
+# msg "texto em português" "text in English"
+msg() { if [ "$(idioma)" = en ]; then printf '%s' "$2"; else printf '%s' "$1"; fi; }
+
+# Copia as últimas linhas do log para Zomboid/Lua (o mod só lê arquivos ali)
+espelhar_log() {
+  [ -d "$LUA_DIR" ] && [ -f "$DESTINO/pz-backup.log" ] || return 0
+  tail -n 150 "$DESTINO/pz-backup.log" | sem_acento > "$LUA_DIR/pzbackup_log.txt.tmp" &&
+    mv -f "$LUA_DIR/pzbackup_log.txt.tmp" "$LUA_DIR/pzbackup_log.txt"
+}
+
 # avisar "mensagem" [erro]
 avisar() {
+  local rot="$ORIGEM"                     # rótulo no idioma das mensagens
+  if [ "$(idioma)" = en ]; then
+    case "$ORIGEM" in RESTAURO) rot=RESTORE ;; LIMPEZA) rot=CLEANUP ;; esac
+  fi
   echo "$1"
-  printf '%s  %-10s %s\n' "$(date '+%d/%m %H:%M:%S')" "[$ORIGEM]" "$1" >> "$DESTINO/pz-backup.log"
+  printf '%s  %-10s %s\n' "$(date '+%d/%m %H:%M:%S')" "[$rot]" "$1" >> "$DESTINO/pz-backup.log"
+  espelhar_log
   tocar "${2:-ok}"
   # Repassa o resultado para o mod mostrar na tela do jogo
-  [ -d "$LUA_DIR" ] && printf '%s|%s|%s\n' "$(date +%s%N)" "${2:-ok}" "[$ORIGEM] $1" | sem_acento > "$LUA_DIR/pzbackup_status.txt"
+  [ -d "$LUA_DIR" ] && printf '%s|%s|%s\n' "$(date +%s%N)" "${2:-ok}" "[$rot] $1" | sem_acento > "$LUA_DIR/pzbackup_status.txt"
   command -v notify-send >/dev/null && notify-send "Project Zomboid" "$1"
   return 0
 }
@@ -141,11 +168,11 @@ PY
 
 fazer_backup() {
   local origem; origem=$(save_atual)
-  [ -z "$origem" ] && { avisar "Nenhum save encontrado em $SAVES" erro; return 1; }
+  [ -z "$origem" ] && { avisar "$(msg "Nenhum save encontrado em $SAVES" "No save found in $SAVES")" erro; return 1; }
 
   # Não salva por cima dos backups bons se o personagem morreu
   if [ "$(estado_personagem "$origem")" = morto ]; then
-    avisar "Personagem MORTO em $(basename "$origem") — backup NÃO feito. Use: pz-backup.sh restore" erro
+    avisar "$(msg "Personagem MORTO em $(basename "$origem") — backup NÃO feito. F9 ou pz-backup.sh restore" "Character is DEAD in $(basename "$origem") — backup NOT taken. F9 or pz-backup.sh restore")" erro
     return 2
   fi
 
@@ -157,9 +184,9 @@ fazer_backup() {
   [ -e "$alvo" ] && alvo="${alvo}-$$"     # dois backups no mesmo segundo
 
   if cp -a "$origem" "$alvo" && touch "$alvo"; then
-    avisar "Backup feito: $mundo ($carimbo)"
+    avisar "$(msg "Backup feito: $mundo ($carimbo)" "Backup done: $mundo ($carimbo)")"
   else
-    avisar "FALHA no backup de $mundo" erro; return 1
+    avisar "$(msg "FALHA no backup de $mundo" "Backup FAILED for $mundo")" erro; return 1
   fi
 
   # Mantém só os MANTER mais recentes deste mundo
@@ -239,7 +266,7 @@ limpar_mortos() {
     if [ "$estado" = morto ] || { [ "$estado" = desconhecido ] && [ -n "$mundo_mod" ] &&
          { [ "$mundo_mod" = "$modo/$mundo" ] || [ "$mundo_mod" = "/$mundo" ]; }; }; then
       mv "$w" "$DESTINO/substituidos/${modo}__${mundo}__$(date +%Y-%m-%d_%H-%M-%S)" &&
-        { avisar "Save de personagem morto removido de Carregar: $mundo (guardado em substituidos)"; n=$((n+1)); }
+        { avisar "$(msg "Save de personagem morto removido de Carregar: $mundo (guardado em substituidos)" "Dead character's save removed from Load: $mundo (kept in substituidos)")"; n=$((n+1)); }
     fi
   done
   [ -n "$mundo_mod" ] && printf 'limpo\n%s\n' "$mundo_mod" > "$est"   # aviso já tratado
@@ -250,7 +277,7 @@ limpar_mortos() {
 # Núcleo da restauração: recebe o NOME do backup (sem perguntar nada)
 restaurar_nome() {
   local nome="$1" escolhido="$DESTINO/$1"
-  [ -n "$nome" ] && [ -d "$escolhido" ] || { avisar "Backup não encontrado: $nome" erro; return 1; }
+  [ -n "$nome" ] && [ -d "$escolhido" ] || { avisar "$(msg "Backup não encontrado: $nome" "Backup not found: $nome")" erro; return 1; }
 
   local modo mundo destino_save
   modo=${nome%%__*}
@@ -266,9 +293,9 @@ restaurar_nome() {
     touch "$destino_save"                 # vira o save mais recente (topo da lista do jogo)
     # O estado "morto" era do save antigo: não pode valer para o restaurado
     [ -d "$LUA_DIR" ] && printf 'restaurado\n%s/%s\n' "$modo" "$mundo" > "$LUA_DIR/pzbackup_estado.txt"
-    avisar "Save restaurado: $nome"
+    avisar "$(msg "Save restaurado: $nome" "Save restored: $nome")"
   else
-    avisar "FALHA ao restaurar $nome" erro; return 1
+    avisar "$(msg "FALHA ao restaurar $nome" "Restore FAILED: $nome")" erro; return 1
   fi
 }
 
@@ -287,7 +314,7 @@ restaurar() {
   # O jogo só lê a lista de saves ao abrir: restaurar com ele aberto
   # faz o save não aparecer em "Carregar" até reiniciar o jogo.
   if jogo_aberto; then
-    avisar "Feche o Project Zomboid antes de restaurar (o jogo só lê a lista de saves ao abrir)" erro
+    avisar "$(msg "Feche o Project Zomboid antes de restaurar (o jogo só lê a lista de saves ao abrir)" "Close Project Zomboid before restoring (the game only reads the save list on startup)")" erro
     return 1
   fi
 
@@ -305,10 +332,11 @@ restaurar() {
 
 case "$1" in
   save)    ORIGEM="MANUAL"; fazer_backup ;;
-  loop)    ORIGEM="AUTO"; avisar "Backup automático a cada $INTERVALO min (Ctrl+C para parar)"
+  loop)    ORIGEM="AUTO"; avisar "$(msg "Backup automático a cada $INTERVALO min (Ctrl+C para parar)" "Automatic backup every $INTERVALO min (Ctrl+C to stop)")"
            while true; do sleep $((INTERVALO * 60)); fazer_backup; done ;;
   list)    listar ;;
-  limpar)  if jogo_aberto; then avisar "Feche o Project Zomboid antes de limpar" erro; exit 1; fi
+  log)     tail -n "${2:-30}" "$DESTINO/pz-backup.log" 2>/dev/null || echo "$(msg "Log vazio." "Log is empty.")" ;;
+  limpar)  if jogo_aberto; then avisar "$(msg "Feche o Project Zomboid antes de limpar" "Close Project Zomboid before cleaning up")" erro; exit 1; fi
            ORIGEM="LIMPEZA"; APAGAR_MORTOS=1; limpar_mortos ;;
   jogo)    shift
            [ $# -eq 0 ] && { echo "Uso na Steam: $0 jogo %command%"; exit 1; }
@@ -317,6 +345,7 @@ case "$1" in
            PEDIDO_RESTAURO="$LUA_DIR/pzbackup_restaurar.txt"
            ATIVO="$LUA_DIR/pzbackup_ativo.txt"
            rm -f "$PEDIDO" "$PEDIDO_RESTAURO"
+           espelhar_log
            while true; do
              ORIGEM="AUTO"
              atualizar_lista
@@ -337,7 +366,7 @@ case "$1" in
                  sleep 1 & SP=$!; wait $SP
                done ) &
              MOD_PID=$!
-             avisar "Jogo iniciado — backup automático a cada $INTERVALO min"
+             avisar "$(msg "Jogo iniciado — backup automático a cada $INTERVALO min" "Game started — automatic backup every $INTERVALO min")"
              "$@"; RC=$?                   # roda o jogo e espera ele fechar
              # Encerra os laços (cada um mata o próprio "sleep" ao receber TERM)
              kill "$LOOP_PID" "$MOD_PID" 2>/dev/null
@@ -353,12 +382,12 @@ case "$1" in
                  ALVO=${NOME#AUTO }
                  NOME=$(ls -d "$DESTINO/${ALVO%%/*}__${ALVO#*/}__"* 2>/dev/null | sort -r | head -n1)
                  NOME=${NOME##*/}
-                 [ -z "$NOME" ] && { ORIGEM="RESTAURO"; avisar "Sem backup de ${ALVO#*/} para restaurar automaticamente" erro; }
+                 [ -z "$NOME" ] && { ORIGEM="RESTAURO"; avisar "$(msg "Sem backup de ${ALVO#*/} para restaurar automaticamente" "No backup of ${ALVO#*/} to auto-restore")" erro; }
                fi
                sleep 3                     # deixa o jogo terminar de gravar
                ORIGEM="RESTAURO"
                if [ -n "$NOME" ] && restaurar_nome "$NOME"; then
-                 avisar "Reabrindo o jogo com o backup restaurado. Confira os mods do save ao carregar (reative/desative)"
+                 avisar "$(msg "Reabrindo o jogo com o backup restaurado. Confira os mods do save ao carregar (reative/desative)" "Reopening the game with the restored backup. Check the save's mods when loading (re-enable/disable)")"
                  continue
                fi
              fi
@@ -367,5 +396,5 @@ case "$1" in
              exit $RC
            done ;;
   restore) ORIGEM="RESTAURO"; restaurar "$2" ;;
-  *)       sed -n '2,17p' "$0" ;;
+  *)       sed -n '2,18p' "$0" ;;
 esac

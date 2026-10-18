@@ -67,7 +67,7 @@ cat <<EOF
 
 2) No jogo: menu principal > Mods > ative "PZ Backup" (e também no seu save).
 
-Dentro do jogo: F8 faz um backup manual e F9 abre a janela de restauração.
+Dentro do jogo: F8 faz um backup manual, F9 abre a janela de restauração (com o botão Ver log).
 Ao morrer, o backup mais recente é restaurado sozinho (desligue em Opções > Mods).
 Para restaurar pelo terminal (com o jogo FECHADO):
    $BASE/pz-backup.sh list

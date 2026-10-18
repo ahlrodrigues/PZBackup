@@ -41,24 +41,24 @@ end
 function PZBackupAuto:createChildren()
     ISPanel.createChildren(self)
     local y = self.height - 40
-    self.btnAgora = ISButton:new(12, y, 140, 28, "Restaurar agora", self, PZBackupAuto.disparar)
+    self.btnAgora = ISButton:new(12, y, 140, 28, PZBackup.T("auto_btn_agora"), self, PZBackupAuto.disparar)
     self.btnAgora:initialise(); self:addChild(self.btnAgora)
-    self.btnOutro = ISButton:new(160, y, 140, 28, "Escolher outro", self, PZBackupAuto.escolherOutro)
+    self.btnOutro = ISButton:new(160, y, 140, 28, PZBackup.T("auto_btn_outro"), self, PZBackupAuto.escolherOutro)
     self.btnOutro:initialise(); self:addChild(self.btnOutro)
-    self.btnCancelar = ISButton:new(self.width - 132, y, 120, 28, "Cancelar", self, PZBackupAuto.cancelar)
+    self.btnCancelar = ISButton:new(self.width - 132, y, 120, 28, PZBackup.T("auto_btn_cancelar"), self, PZBackupAuto.cancelar)
     self.btnCancelar:initialise(); self:addChild(self.btnCancelar)
 end
 
 function PZBackupAuto:prerender()
     ISPanel.prerender(self)
     local resta = math.max(0, math.ceil((self.fim - agoraMs()) / 1000))
-    self:drawText("Personagem morto", 12, 10, 1, 0.5, 0.5, 1, UIFont.Medium)
+    self:drawText(PZBackup.T("auto_titulo"), 12, 10, 1, 0.5, 0.5, 1, UIFont.Medium)
     if self.disparado then
-        self:drawText("Fechando o jogo para restaurar...", 12, 40, 1, 1, 1, 1, UIFont.Small)
+        self:drawText(PZBackup.T("auto_fechando"), 12, 40, 1, 1, 1, 1, UIFont.Small)
     else
-        self:drawText("Restaurando o backup mais recente deste mundo em " .. resta .. " s.",
+        self:drawText(PZBackup.T("auto_contagem", resta),
             12, 40, 1, 1, 1, 1, UIFont.Small)
-        self:drawText("O jogo fecha, restaura e reabre: depois clique em Continuar.",
+        self:drawText(PZBackup.T("auto_explica"),
             12, 60, 0.8, 0.8, 0.8, 1, UIFont.Small)
     end
     if not self.disparado and not self.fechado and resta <= 0 then self:disparar() end
@@ -69,13 +69,13 @@ function PZBackupAuto:disparar()
     self.disparado = true
     if not PZBackup.scriptAtivo() then
         self.disparado = false
-        PZBackup.mostrar("Script de backup nao esta rodando: restauracao cancelada", true)
+        PZBackup.mostrar(PZBackup.T("auto_sem_script"), true)
         self:fechar()
         return
     end
     -- "AUTO modo/mundo": o script escolhe o backup mais recente desse mundo
     if not PZBackup.gravar(PZBackup.ARQ_RESTAURAR, "AUTO " .. self.modoMundo .. "\n") then
-        PZBackup.mostrar("Falha ao gravar o pedido de restauracao", true)
+        PZBackup.mostrar(PZBackup.T("falha_pedido_restauro"), true)
         self:fechar()
         return
     end
@@ -90,7 +90,7 @@ end
 
 function PZBackupAuto:cancelar()
     self:fechar()
-    PZBackup.mostrar("Restauracao automatica cancelada. F9 abre a lista de backups", true)
+    PZBackup.mostrar(PZBackup.T("auto_cancelado"), true)
 end
 
 function PZBackupAuto:fechar()

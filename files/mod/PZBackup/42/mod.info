@@ -1,0 +1,8 @@
+name=PZ Backup
+id=PZBackupAHLR
+description=Saves your save while you play: auto backup every 5 min, F8 backup now, F9 restore, and on death it undoes the tragedy (game closes, restores, reopens - click Continue). REQUIRES the PZ Backup script: github.com/ahlrodrigues/PZBackup <LINE> <LINE> Salva seu save enquanto voce joga: backup a cada 5 min, F8 salva, F9 restaura e, se morrer, desfaz a tragedia (o jogo fecha, restaura e reabre - clique em Continuar). REQUER o script PZ Backup: github.com/ahlrodrigues/PZBackup
+poster=poster.png
+icon=icon.png
+url=https://github.com/ahlrodrigues/PZBackup
+modversion=1.1.1
+versionMin=42.0

@@ -3,6 +3,30 @@
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/);
 versões seguem [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.1.1] - 2026-10-18
+
+### Corrigido
+- Detecção do idioma do jogo: o mod procurava "PT" em qualquer parte do texto devolvido
+  pelo jogo e podia mostrar a janela do F9 (e o resto) em português com o jogo em inglês.
+  Agora compara o código exato do idioma (`PT`/`PTBR` = português, o resto = inglês).
+- O idioma detectado é registrado no `console.txt` (`[PZBackup] idioma do jogo: ...`).
+
+## [1.1.0] - 2026-10-18
+
+### Adicionado
+- **Mod em inglês e português**: segue o idioma do jogo (opções, janelas, painel de morte, avisos).
+- **Botão "Ver log"** na janela do F9 e em *Opções → Mods*: últimas 150 linhas, mais recentes
+  no topo, coloridas por tipo (backup, restauração, falha).
+- Comando `pz-backup.sh log` / `pz-backup.ps1 log`.
+- Mensagens dos scripts em PT ou EN conforme o idioma do jogo (`IDIOMA` força um dos dois);
+  rótulos `[RESTORE]`/`[CLEANUP]` em inglês.
+- Diagramas "Como funciona" e "Morreu? E agora?" (PT e EN) em `docs/img/`.
+
+### Alterado
+- Capa e ícone novos, coloridos e no clima do jogo (arte original).
+- README (EN), LEIAME (PT-BR) e descrição da Workshop reescritos: mais detalhados e com
+  menos cara de manual de geladeira.
+
 ## [1.0.1] - 2026-10-16
 
 ### Alterado
@@ -35,5 +59,7 @@ Primeira versão pública.
 - Instaladores para Linux (Steam nativa e Flatpak) e Windows 10/11.
 - Aviso no jogo, com o endereço do repositório, quando o script não está instalado.
 
+[1.1.1]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.1.1
+[1.1.0]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.1.0
 [1.0.1]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.0.1
 [1.0.0]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.0.0

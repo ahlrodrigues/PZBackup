@@ -1,8 +1,0 @@
-name=PZ Backup
-id=PZBackupAHLR
-description=Automatic save backups while you play. F8 = backup now, F9 = restore. On death, restores the latest backup by itself (game closes and reopens, click Continue). REQUIRES the pz-backup script: github.com/ahlrodrigues/PZBackup <LINE> Backup automatico do save enquanto voce joga. F8 = backup, F9 = restaurar. Ao morrer, restaura sozinho o backup mais recente. REQUER o script pz-backup: github.com/ahlrodrigues/PZBackup
-poster=poster.png
-icon=icon.png
-url=https://github.com/ahlrodrigues/PZBackup
-modversion=1.0.1
-versionMin=42.0

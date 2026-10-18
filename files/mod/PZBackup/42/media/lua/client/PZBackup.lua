@@ -108,27 +108,30 @@ local function criarOpcoes()
         return ok2 and r or nil
     end
     opcaoBackup = tentar("teclaBackup", function()
-        return opcoes:addKeyBind("teclaBackup", "Fazer backup agora", TECLA_BACKUP_PADRAO,
-            "Pede ao script uma copia do save")
+        return opcoes:addKeyBind("teclaBackup", PZBackup.T("opt_tecla_backup"), TECLA_BACKUP_PADRAO,
+            PZBackup.T("opt_tecla_backup_dica"))
     end)
     opcaoRestaurar = tentar("teclaRestaurar", function()
-        return opcoes:addKeyBind("teclaRestaurar", "Abrir janela de restauracao", TECLA_RESTAURAR_PADRAO,
-            "Lista os backups e restaura o escolhido")
+        return opcoes:addKeyBind("teclaRestaurar", PZBackup.T("opt_tecla_restaurar"), TECLA_RESTAURAR_PADRAO,
+            PZBackup.T("opt_tecla_restaurar_dica"))
     end)
     tentar("botaoRestaurar", function()
-        return opcoes:addButton("botaoRestaurar", "Restaurar backup...",
-            "Abre a lista de backups. O jogo fecha, restaura e reabre sozinho.",
+        return opcoes:addButton("botaoRestaurar", PZBackup.T("opt_botao_restaurar"),
+            PZBackup.T("opt_botao_restaurar_dica"),
             function() if PZBackup.abrirJanela then PZBackup.abrirJanela() end end)
     end)
+    tentar("botaoLog", function()
+        return opcoes:addButton("botaoLog", PZBackup.T("opt_botao_log"),
+            PZBackup.T("opt_botao_log_dica"),
+            function() if PZBackup.abrirLog then PZBackup.abrirLog() end end)
+    end)
     opcaoRestaurarAuto = tentar("restaurarAuto", function()
-        return opcoes:addTickBox("restaurarAuto", "Ao morrer, restaurar o backup mais recente automaticamente",
-            RESTAURAR_AUTO_PADRAO,
-            "Conta 10 s, fecha o jogo, restaura o backup mais recente deste mundo e reabre. Depois e so clicar em Continuar.")
+        return opcoes:addTickBox("restaurarAuto", PZBackup.T("opt_restaurar_auto"),
+            RESTAURAR_AUTO_PADRAO, PZBackup.T("opt_restaurar_auto_dica"))
     end)
     opcaoApagarMortos = tentar("apagarMortos", function()
-        return opcoes:addTickBox("apagarMortos", "Remover saves de personagem morto ao fechar o jogo",
-            APAGAR_MORTOS_PADRAO,
-            "Ao fechar o jogo, o save onde o personagem morreu sai da lista Carregar (vai para BackupsSaves/substituidos)")
+        return opcoes:addTickBox("apagarMortos", PZBackup.T("opt_apagar_mortos"),
+            APAGAR_MORTOS_PADRAO, PZBackup.T("opt_apagar_mortos_dica"))
     end)
     -- Chamado quando o jogador aplica as opções
     pcall(function()
@@ -155,7 +158,8 @@ end
 
 function PZBackup.salvarConfig()
     PZBackup.gravar(PZBackup.ARQ_CONFIG,
-        "apagar_mortos=" .. (PZBackup.apagarMortos() and "1" or "0") .. "\n")
+        "apagar_mortos=" .. (PZBackup.apagarMortos() and "1" or "0") .. "\n" ..
+        "idioma=" .. PZBackup.idioma() .. "\n")
 end
 
 criarOpcoes()
@@ -175,17 +179,17 @@ local function pedirBackup()
     local p = getPlayer()
     if not p then return end
     if p:isDead() then
-        PZBackup.mostrar("Personagem morto: backup bloqueado. Use F9 para restaurar", true)
+        PZBackup.mostrar(PZBackup.T("msg_morto_bloqueado"), true)
         return
     end
     if not PZBackup.scriptAtivo() then
-        PZBackup.mostrar("Script de backup nao esta rodando. Instale: " .. PZBackup.URL, true)
+        PZBackup.mostrar(PZBackup.T("msg_script_parado", PZBackup.URL), true)
         return
     end
     if PZBackup.gravar(PZBackup.ARQ_PEDIDO, "save " .. tostring(getTimestamp()) .. "\n") then
-        PZBackup.mostrar("Backup solicitado...", false)
+        PZBackup.mostrar(PZBackup.T("msg_backup_solicitado"), false)
     else
-        PZBackup.mostrar("PZ Backup: falha ao gravar pedido", true)
+        PZBackup.mostrar(PZBackup.T("msg_falha_pedido"), true)
     end
 end
 
@@ -243,13 +247,13 @@ local function aoMorrer(jogador)
            and PZBackup.iniciarRestauracaoAuto then
             PZBackup.iniciarRestauracaoAuto(mm)
         elseif not PZBackup.scriptAtivo() then
-            PZBackup.mostrar("Morto. Script de backup parado: sem restauracao automatica", true)
+            PZBackup.mostrar(PZBackup.T("msg_morto_sem_script"), true)
         elseif PZBackup.restaurarAuto() and not PZBackup.temBackupDoMundo(mm) then
-            PZBackup.mostrar("Morto. Nao ha backup deste mundo para restaurar", true)
+            PZBackup.mostrar(PZBackup.T("msg_morto_sem_backup"), true)
         elseif PZBackup.apagarMortos() then
-            PZBackup.mostrar("Morto. Ao fechar o jogo este save sera removido. F9 restaura um backup", true)
+            PZBackup.mostrar(PZBackup.T("msg_morto_sera_removido"), true)
         else
-            PZBackup.mostrar("PZ Backup: aperte F9 para restaurar um backup", true)
+            PZBackup.mostrar(PZBackup.T("msg_morto_f9"), true)
         end
     end
 end
@@ -283,7 +287,7 @@ Events.OnGameStart.Add(PZBackup.salvarConfig)
 Events.OnGameStart.Add(function()
     if not PZBackup.scriptAtivo() then
         print("[PZBackup] script de backup nao detectado. Instale: https://" .. PZBackup.URL)
-        PZBackup.mostrar("PZ Backup: script nao detectado. Instale: " .. PZBackup.URL, true)
+        PZBackup.mostrar(PZBackup.T("msg_script_nao_detectado", PZBackup.URL), true)
     end
 end)
 if Events.OnMainMenuEnter then Events.OnMainMenuEnter.Add(PZBackup.salvarConfig) end

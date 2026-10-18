@@ -61,15 +61,19 @@ function PZBackupJanela:createChildren()
     self:addChild(self.lista)
 
     local yBotoes = self.height - 40
-    self.btnRestaurar = ISButton:new(12, yBotoes, 160, 28, "Restaurar", self, PZBackupJanela.aoClicarRestaurar)
+    self.btnRestaurar = ISButton:new(12, yBotoes, 160, 28, PZBackup.T("jan_btn_restaurar"), self, PZBackupJanela.aoClicarRestaurar)
     self.btnRestaurar:initialise()
     self:addChild(self.btnRestaurar)
 
-    self.btnAtualizar = ISButton:new(184, yBotoes, 120, 28, "Atualizar", self, PZBackupJanela.carregar)
+    self.btnAtualizar = ISButton:new(184, yBotoes, 110, 28, PZBackup.T("jan_btn_atualizar"), self, PZBackupJanela.carregar)
     self.btnAtualizar:initialise()
     self:addChild(self.btnAtualizar)
 
-    self.btnFechar = ISButton:new(self.width - 132, yBotoes, 120, 28, "Fechar", self, PZBackupJanela.fechar)
+    self.btnLog = ISButton:new(304, yBotoes, 90, 28, PZBackup.T("jan_btn_log"), self, PZBackupJanela.verLog)
+    self.btnLog:initialise()
+    self:addChild(self.btnLog)
+
+    self.btnFechar = ISButton:new(self.width - 112, yBotoes, 100, 28, PZBackup.T("jan_btn_fechar"), self, PZBackupJanela.fechar)
     self.btnFechar:initialise()
     self:addChild(self.btnFechar)
 
@@ -78,7 +82,7 @@ end
 
 function PZBackupJanela:prerender()
     ISPanel.prerender(self)
-    self:drawText("PZ Backup - Restaurar backup", 12, 12, 1, 1, 1, 1, UIFont.Medium)
+    self:drawText(PZBackup.T("jan_titulo"), 12, 12, 1, 1, 1, 1, UIFont.Medium)
     local c = self.corMensagem
     self:drawText(self.mensagem, 12, self.height - 70, c.r, c.g, c.b, 1, FONTE)
 end
@@ -100,29 +104,25 @@ function PZBackupJanela:carregar()
     if #self.lista.items > 0 then self.lista.selected = 1 end
 
     if not PZBackup.scriptAtivo() then
-        self:avisar("Script de backup nao esta rodando. Instale: " .. PZBackup.URL, true)
+        self:avisar(PZBackup.T("msg_script_parado", PZBackup.URL), true)
     elseif #self.lista.items == 0 then
-        self:avisar("Nenhum backup encontrado.", true)
+        self:avisar(PZBackup.T("jan_nenhum"), true)
     else
-        self:avisar("1 = mais recente. Escolha um backup de antes do perigo.", false)
+        self:avisar(PZBackup.T("jan_dica"), false)
     end
 end
 
 function PZBackupJanela:aoClicarRestaurar()
     local item = self.lista.items[self.lista.selected]
     if not item then
-        self:avisar("Selecione um backup na lista.", true)
+        self:avisar(PZBackup.T("jan_selecione"), true)
         return
     end
     if not PZBackup.scriptAtivo() then
-        self:avisar("Script de backup nao esta rodando. Abra o jogo pela Steam/atalho com o PZ Backup.", true)
+        self:avisar(PZBackup.T("jan_script_parado"), true)
         return
     end
-    local texto = "Restaurar o backup:\n" .. item.text ..
-        "\n\nO jogo vai FECHAR, o backup sera restaurado e o jogo REABRE sozinho." ..
-        "\nO progresso desde esse backup sera perdido (fica guardado em 'substituidos')." ..
-        "\n\nDEPOIS: ao carregar, confira os mods do save (Carregar > Mods)." ..
-        "\nReative o PZ Backup e os mods que usa; desative os que nao quiser."
+    local texto = PZBackup.T("jan_confirmar", item.text)
     local dlg = ISModalDialog:new(
         (getCore():getScreenWidth() - 520) / 2, (getCore():getScreenHeight() - 240) / 2,
         520, 240, texto, true, self, PZBackupJanela.aoConfirmar, nil, item.item)
@@ -134,12 +134,16 @@ end
 function PZBackupJanela:aoConfirmar(botao, nome)
     if botao.internal ~= "YES" then return end
     if not PZBackup.gravar(PZBackup.ARQ_RESTAURAR, nome .. "\n") then
-        self:avisar("Falha ao gravar o pedido de restauracao.", true)
+        self:avisar(PZBackup.T("falha_pedido_restauro"), true)
         return
     end
     print("[PZBackup] restauração pedida: " .. tostring(nome))
-    self:avisar("Fechando o jogo para restaurar...", false)
+    self:avisar(PZBackup.T("auto_fechando"), false)
     fecharJogo()
+end
+
+function PZBackupJanela:verLog()
+    if PZBackup.abrirLog then PZBackup.abrirLog() end
 end
 
 function PZBackupJanela:fechar()

@@ -1,5 +1,5 @@
 # pz-backup.ps1 — Backup periódico e manual do save do Project Zomboid (Windows)
-# Versao 1.0.1 — https://github.com/ahlrodrigues/PZBackup — Licenca MIT
+# Versao 1.1.1 — https://github.com/ahlrodrigues/PZBackup — Licenca MIT
 #
 # Uso (PowerShell):
 #   pz-backup.ps1 save        -> faz um backup agora
@@ -11,6 +11,7 @@
 #                                aberto, atende a tecla do mod e faz um backup final ao fechar
 #   pz-backup.ps1 escolher    -> mostra a lista e pergunta qual backup restaurar
 #   pz-backup.ps1 limpar      -> remove agora o save do personagem morto (jogo FECHADO)
+#   pz-backup.ps1 log         -> mostra as ultimas linhas do log
 
 param([string]$Acao = "", [int]$Numero = 1)
 
@@ -48,16 +49,43 @@ function Sem-Acento([string]$t) {
         Where-Object { [Globalization.CharUnicodeInfo]::GetUnicodeCategory($_) -ne 'NonSpacingMark' }) -join ''
 }
 
+# Idioma das mensagens: o que o mod informou (idioma=pt|en em pzbackup_config.txt);
+# sem o mod, segue o idioma do Windows
+$Idioma = ""                                     # "" = automatico; "pt" ou "en" forca
+function Idioma-Atual {
+    if ($Idioma) { return $Idioma }
+    $cfg = Join-Path $LuaDir "pzbackup_config.txt"
+    if (Test-Path $cfg) {
+        if (Select-String -Path $cfg -Pattern '^idioma=en' -Quiet) { return "en" }
+        if (Select-String -Path $cfg -Pattern '^idioma=pt' -Quiet) { return "pt" }
+    }
+    if ((Get-Culture).Name -like "pt*") { return "pt" } else { return "en" }
+}
+# Msg "texto em portugues" "text in English"
+function Msg([string]$Pt, [string]$En) { if ((Idioma-Atual) -eq "en") { $En } else { $Pt } }
+
+# Copia as ultimas linhas do log para Zomboid\Lua (o mod so le arquivos ali)
+function Espelhar-Log {
+    if (-not (Test-Path $LuaDir) -or -not (Test-Path $Log)) { return }
+    $ultimas = Get-Content $Log -Tail 150 -Encoding UTF8 | ForEach-Object { Sem-Acento $_ }
+    [IO.File]::WriteAllText((Join-Path $LuaDir "pzbackup_log.txt"), (($ultimas -join "`n") + "`n"), $Utf8)
+}
+
 function Avisar([string]$Msg, [string]$Tipo = "ok") {
+    $rot = $script:Origem                        # rotulo no idioma das mensagens
+    if ((Idioma-Atual) -eq "en") {
+        if ($rot -eq "RESTAURO") { $rot = "RESTORE" } elseif ($rot -eq "LIMPEZA") { $rot = "CLEANUP" }
+    }
     Write-Host $Msg
-    $linha = "{0}  {1,-10} {2}" -f (Get-Date -Format "dd/MM HH:mm:ss"), "[$($script:Origem)]", $Msg
+    $linha = "{0}  {1,-10} {2}" -f (Get-Date -Format "dd/MM HH:mm:ss"), "[$rot]", $Msg
     [IO.File]::AppendAllText($Log, $linha + "`r`n", $Utf8)
+    Espelhar-Log
     Tocar $Tipo
     # Repassa o resultado para o mod mostrar na tela do jogo
     if (Test-Path $LuaDir) {
         $id = [DateTime]::UtcNow.Ticks
         [IO.File]::WriteAllText((Join-Path $LuaDir "pzbackup_status.txt"),
-            (Sem-Acento "$id|$Tipo|[$($script:Origem)] $Msg") + "`n", $Utf8)
+            (Sem-Acento "$id|$Tipo|[$rot] $Msg") + "`n", $Utf8)
     }
 }
 
@@ -81,12 +109,12 @@ function Estado-Personagem {
 
 function Fazer-Backup {
     $origem = Save-Atual
-    if (-not $origem) { Avisar "Nenhum save encontrado em $Saves" "erro"; return }
+    if (-not $origem) { Avisar (Msg "Nenhum save encontrado em $Saves" "No save found in $Saves") "erro"; return }
 
     $modo = $origem.Parent.Name
     $mundo = $origem.Name
     if ((Estado-Personagem) -eq "morto") {
-        Avisar "Personagem MORTO em $mundo - backup NAO feito. Use: pz-backup.ps1 restore" "erro"
+        Avisar (Msg "Personagem MORTO em $mundo - backup NAO feito. F9 ou o atalho Restaurar" "Character is DEAD in $mundo - backup NOT taken. F9 or the Restore shortcut") "erro"
         return
     }
 
@@ -96,9 +124,9 @@ function Fazer-Backup {
     try {
         Copy-Item $origem.FullName $alvo -Recurse -ErrorAction Stop
         (Get-Item $alvo).LastWriteTime = Get-Date
-        Avisar "Backup feito: $mundo ($carimbo)"
+        Avisar (Msg "Backup feito: $mundo ($carimbo)" "Backup done: $mundo ($carimbo)")
     } catch {
-        Avisar "FALHA no backup de ${mundo}: $($_.Exception.Message)" "erro"; return
+        Avisar (Msg "FALHA no backup de ${mundo}: $($_.Exception.Message)" "Backup FAILED for ${mundo}: $($_.Exception.Message)") "erro"; return
     }
 
     # Mantém só os $Manter mais recentes deste mundo
@@ -167,7 +195,7 @@ function Limpar-Mortos {
         if (-not (Test-Path $w)) { continue }
         $m = Split-Path (Split-Path $w -Parent) -Leaf
         Move-Item $w (Join-Path $subst "${m}__${mundo}__$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss')")
-        Avisar "Save de personagem morto removido de Carregar: $mundo (guardado em substituidos)"
+        Avisar (Msg "Save de personagem morto removido de Carregar: $mundo (guardado em substituidos)" "Dead character's save removed from Load: $mundo (kept in substituidos)")
     }
     [IO.File]::WriteAllText($est, "limpo`n$alvo`n", $Utf8)    # aviso ja tratado
     Get-ChildItem $subst -Directory | Where-Object { $_.Name -like "*__*__*" } |
@@ -178,7 +206,7 @@ function Limpar-Mortos {
 # Núcleo da restauração: recebe o NOME do backup (sem perguntar nada)
 function Restaurar-Nome([string]$Nome) {
     $escolhido = Join-Path $Destino $Nome
-    if (-not $Nome -or -not (Test-Path $escolhido)) { Avisar "Backup nao encontrado: $Nome" "erro"; return $false }
+    if (-not $Nome -or -not (Test-Path $escolhido)) { Avisar (Msg "Backup nao encontrado: $Nome" "Backup not found: $Nome") "erro"; return $false }
     $partes = $Nome -split "__"
     $modo = $partes[0]
     $mundo = ($partes[1..($partes.Count - 2)] -join "__")
@@ -202,10 +230,10 @@ function Restaurar-Nome([string]$Nome) {
         if (Test-Path $LuaDir) {
             [IO.File]::WriteAllText((Join-Path $LuaDir "pzbackup_estado.txt"), "restaurado`n$modo/$mundo`n", $Utf8)
         }
-        Avisar "Save restaurado: $Nome"
+        Avisar (Msg "Save restaurado: $Nome" "Save restored: $Nome")
         return $true
     } catch {
-        Avisar "FALHA ao restaurar ${Nome}: $($_.Exception.Message)" "erro"
+        Avisar (Msg "FALHA ao restaurar ${Nome}: $($_.Exception.Message)" "Restore FAILED: ${Nome}: $($_.Exception.Message)") "erro"
         return $false
     }
 }
@@ -215,7 +243,7 @@ function Restaurar([int]$N) {
     # O jogo só lê a lista de saves ao abrir: restaurar com ele aberto
     # faz o save não aparecer em "Carregar" até reiniciar o jogo.
     if (Jogo-Aberto) {
-        Avisar "Feche o Project Zomboid antes de restaurar (o jogo so le a lista de saves ao abrir)" "erro"
+        Avisar (Msg "Feche o Project Zomboid antes de restaurar (o jogo so le a lista de saves ao abrir)" "Close Project Zomboid before restoring (the game only reads the save list on startup)") "erro"
         return
     }
     $lista = @(Backups-Ordenados)
@@ -250,15 +278,16 @@ function Modo-Jogo {
     $restauro = Join-Path $LuaDir "pzbackup_restaurar.txt"
     $ativo    = Join-Path $LuaDir "pzbackup_ativo.txt"
     Remove-Item $pedido, $restauro -Force -ErrorAction SilentlyContinue
+    Espelhar-Log
 
     while ($true) {
         $script:Origem = "AUTO"
         if (-not (Jogo-Aberto)) { Start-Process "steam://rungameid/$SteamAppId" }
         if (-not (Esperar-Jogo)) {
-            Avisar "O jogo nao abriu em 3 minutos - backup automatico cancelado" "erro"; return
+            Avisar (Msg "O jogo nao abriu em 3 minutos - backup automatico cancelado" "The game didn't start within 3 minutes - automatic backup cancelled") "erro"; return
         }
         Atualizar-Lista
-        Avisar "Jogo iniciado - backup automatico a cada $Intervalo min"
+        Avisar (Msg "Jogo iniciado - backup automatico a cada $Intervalo min" "Game started - automatic backup every $Intervalo min")
 
         $proximo = (Get-Date).AddMinutes($Intervalo)
         while (Jogo-Aberto) {
@@ -287,11 +316,11 @@ function Modo-Jogo {
                 $ultimo = Get-ChildItem $Destino -Directory -Filter "$($alvo[0])__$($alvo[1])__*" |
                     Sort-Object Name -Descending | Select-Object -First 1
                 $nome = if ($ultimo) { $ultimo.Name } else { "" }
-                if (-not $nome) { $script:Origem = "RESTAURO"; Avisar "Sem backup de $($alvo[1]) para restaurar automaticamente" "erro" }
+                if (-not $nome) { $script:Origem = "RESTAURO"; Avisar (Msg "Sem backup de $($alvo[1]) para restaurar automaticamente" "No backup of $($alvo[1]) to auto-restore") "erro" }
             }
             $script:Origem = "RESTAURO"
             if ($nome -and (Restaurar-Nome $nome)) {
-                Avisar "Reabrindo o jogo com o backup restaurado. Confira os mods do save ao carregar (reative/desative)"
+                Avisar (Msg "Reabrindo o jogo com o backup restaurado. Confira os mods do save ao carregar (reative/desative)" "Reopening the game with the restored backup. Check the save's mods when loading (re-enable/disable)")
                 continue
             }
         }
@@ -304,10 +333,11 @@ function Modo-Jogo {
 switch ($Acao) {
     "save"    { $script:Origem = "MANUAL"; Fazer-Backup }
     "loop"    { $script:Origem = "AUTO"
-                Avisar "Backup automatico a cada $Intervalo min (feche a janela para parar)"
+                Avisar (Msg "Backup automatico a cada $Intervalo min (feche a janela para parar)" "Automatic backup every $Intervalo min (close this window to stop)")
                 while ($true) { Start-Sleep ($Intervalo * 60); Fazer-Backup } }
     "list"    { Listar }
-    "limpar"  { if (Jogo-Aberto) { Avisar "Feche o Project Zomboid antes de limpar" "erro" }
+    "log"     { if (Test-Path $Log) { Get-Content $Log -Tail 30 -Encoding UTF8 } else { Msg "Log vazio." "Log is empty." } }
+    "limpar"  { if (Jogo-Aberto) { Avisar (Msg "Feche o Project Zomboid antes de limpar" "Close Project Zomboid before cleaning up") "erro" }
                 else { $script:Origem = "LIMPEZA"; $ApagarMortos = "1"; Limpar-Mortos } }
     "restore" { $script:Origem = "RESTAURO"; Restaurar $Numero }
     "jogo"    { Modo-Jogo }
@@ -317,5 +347,5 @@ switch ($Acao) {
                 $n = Read-Host "`nNumero do backup para restaurar (Enter = cancelar)"
                 if ($n -match '^\d+$') { Restaurar ([int]$n) } else { Write-Host "Cancelado." }
                 Read-Host "`nPressione Enter para fechar" | Out-Null }
-    default   { Get-Content $PSCommandPath -TotalCount 14 | Select-Object -Skip 1 }
+    default   { Get-Content $PSCommandPath -TotalCount 15 | Select-Object -Skip 1 }
 }
