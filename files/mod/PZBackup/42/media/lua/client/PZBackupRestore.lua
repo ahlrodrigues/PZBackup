@@ -1,10 +1,10 @@
 --[[
-  PZ Backup — janela de restauração
+  PZ Backup — restore window
 
-  Abre com F9 (no jogo) ou pelo botão "Restaurar backup..." em Opções > Mods.
-  Ao confirmar, o mod grava o nome do backup em pzbackup_restaurar.txt e fecha
-  o jogo. O script detecta o fechamento, restaura o save e reabre o jogo.
-  (O jogo só lê a lista de saves ao abrir, por isso precisa reiniciar.)
+  Opened with F9 (in game) or the "Restore backup..." button in Options > Mods.
+  On confirm, the mod writes the backup name to pzbackup_restaurar.txt and closes
+  the game. The script notices, restores the save and relaunches the game.
+  (The game reads the save list only on startup, hence the restart.)
 ]]
 
 require "ISUI/ISPanel"
@@ -18,12 +18,12 @@ local LARGURA, ALTURA = 520, 420
 local FONTE = UIFont.Small
 
 ------------------------------------------------------------------------
--- Fecha o jogo para o script restaurar
+-- Closes the game so the script can restore
 ------------------------------------------------------------------------
 function PZBackup.fecharJogo()
     local core = getCore()
     if getPlayer() then
-        -- Em jogo: sai para a área de trabalho (o script restaura por cima)
+        -- In game: quit to desktop (the script restores over it)
         if pcall(function() core:quitToDesktop() end) then return end
     end
     pcall(function() core:quit() end)
@@ -32,7 +32,7 @@ end
 local fecharJogo = PZBackup.fecharJogo
 
 ------------------------------------------------------------------------
--- Janela
+-- Window
 ------------------------------------------------------------------------
 function PZBackupJanela:new()
     local x = (getCore():getScreenWidth() - LARGURA) / 2
@@ -93,8 +93,8 @@ function PZBackupJanela:avisar(texto, erro)
     else self.corMensagem = { r = 0.6, g = 1, b = 0.6 } end
 end
 
--- Lê pzbackup_lista.txt (gerado pelo script): uma linha "nome|rótulo" por backup,
--- do mais recente para o mais antigo
+-- Reads pzbackup_lista.txt (written by the script): one "name|label" line per backup,
+-- newest first
 function PZBackupJanela:carregar()
     self.lista:clear()
     for _, linha in ipairs(PZBackup.lerLinhas(PZBackup.ARQ_LISTA)) do
@@ -137,7 +137,7 @@ function PZBackupJanela:aoConfirmar(botao, nome)
         self:avisar(PZBackup.T("falha_pedido_restauro"), true)
         return
     end
-    print("[PZBackup] restauração pedida: " .. tostring(nome))
+    print("[PZBackup] restore requested: " .. tostring(nome))
     self:avisar(PZBackup.T("auto_fechando"), false)
     fecharJogo()
 end
@@ -153,7 +153,7 @@ function PZBackupJanela:fechar()
 end
 
 ------------------------------------------------------------------------
--- Abre (ou fecha, se já estiver aberta)
+-- Opens (or closes, if already open)
 ------------------------------------------------------------------------
 function PZBackup.abrirJanela()
     if PZBackup.janela then

@@ -1,13 +1,13 @@
 --[[
-  PZ Backup — restauração automática ao morrer
+  PZ Backup — auto-restore on death
 
-  Com a opção "Ao morrer, restaurar o backup mais recente automaticamente"
-  ligada (Opções > Mods > PZ Backup), a morte abre este painel com uma
-  contagem regressiva. Ao terminar (ou em "Restaurar agora"), o mod pede ao
-  script o backup mais recente DESTE mundo e fecha o jogo. O script restaura
-  e reabre o jogo: no menu principal, é só clicar em Continuar.
+  With the auto-restore-on-death option on (Options > Mods > PZ Backup),
+  dying opens this panel with a countdown. When it ends (or on
+  "Restore now"), the mod asks the script for THIS world's newest backup
+  and closes the game. The script restores and relaunches the game:
+  in the main menu, just click Continue.
 
-  Botões: Restaurar agora / Escolher outro (abre a lista) / Cancelar.
+  Buttons: Restore now / Choose another (opens the list) / Cancel.
 ]]
 
 require "ISUI/ISPanel"
@@ -73,13 +73,13 @@ function PZBackupAuto:disparar()
         self:fechar()
         return
     end
-    -- "AUTO modo/mundo": o script escolhe o backup mais recente desse mundo
+    -- "AUTO mode/world": the script picks that world's newest backup
     if not PZBackup.gravar(PZBackup.ARQ_RESTAURAR, "AUTO " .. self.modoMundo .. "\n") then
         PZBackup.mostrar(PZBackup.T("falha_pedido_restauro"), true)
         self:fechar()
         return
     end
-    print("[PZBackup] restauracao automatica pedida: " .. tostring(self.modoMundo))
+    print("[PZBackup] auto-restore requested: " .. tostring(self.modoMundo))
     PZBackup.fecharJogo()
 end
 

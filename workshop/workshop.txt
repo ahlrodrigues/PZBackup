@@ -1,11 +1,11 @@
 version=1
-title=PZ Backup — save backups & undo death
-description=[h1]PZ Backup — Knox County doesn't do second chances. We do.[/h1]
+title=PZ Backup - save backups & undo death
+description=[h1]PZ Backup - Knox County doesn't do second chances. We do.[/h1]
 description=You spent three weeks building the perfect base. Then you opened one door without looking. We've all been there.
 description=
-description=[b]PZ Backup[/b] copies your save [b]while you play[/b] — every 5 minutes and whenever you hit [b]F8[/b]. Died? It restores your latest backup, reopens the game, and you just click [b]Continue[/b].
+description=[b]PZ Backup[/b] copies your save [b]while you play[/b] - every 5 minutes and whenever you hit [b]F8[/b]. Died? It restores your latest backup, reopens the game, and you just click [b]Continue[/b].
 description=
-description=[h2]⚠ You also need the PZ Backup script[/h2]
+description=[h2]You also need the PZ Backup script[/h2]
 description=Zomboid's Lua can't copy folders, so the actual backups are done by a small script that runs with the game (Linux & Windows).
 description=[b]Get it here (free, with installer):[/b] [url=https://github.com/ahlrodrigues/PZBackup/releases]github.com/ahlrodrigues/PZBackup[/url]
 description=Without the script, this mod just politely reminds you to install it.
@@ -16,12 +16,12 @@ description=[h2]What it does[/h2]
 description=[list]
 description=[*][b]Auto backup[/b] every 5 min while you play, plus one when the game closes
 description=[*][b]F8[/b] = backup right now. [b]F9[/b] = restore window (keys configurable)
-description=[*][b]Died? Undo![/b] 10 s countdown → the game closes, restores the latest backup of [i]that world[/i], reopens → click [b]Continue[/b]
-description=[*][b]Restore now / Choose another / Cancel[/b] — your call
+description=[*][b]Died? Undo![/b] 10 s countdown -> the game closes, restores the latest backup of [i]that world[/i], reopens -> click [b]Continue[/b]
+description=[*][b]Restore now / Choose another / Cancel[/b] - your call
 description=[*][b]Never backs up a corpse[/b]: no backups while you're dead, so the good ones stay safe
 description=[*][b]Auto cleanup[/b] of dead-character saves from the Load list (kept in a safety folder)
 description=[*][b]View log[/b] button, color-coded, right in the game
-description=[*]Speaks [b]English and Portuguese[/b] (follows your game language)
+description=[*][b]English[/b] by default, [b]Brazilian Portuguese[/b] with one checkbox in the options
 description=[/list]
 description=
 description=[img]https://raw.githubusercontent.com/ahlrodrigues/PZBackup/main/docs/img/morreu-en.png[/img]
@@ -29,18 +29,18 @@ description=
 description=[h2]Tips[/h2]
 description=[list]
 description=[*][b]Bites are forever[/b]: if the latest backup was taken after a bite, use [i]Choose another[/i].
-description=[*]After a restore, check the save's mods ([i]Load → save → Mods[/i]) and re-enable PZ Backup if needed.
-description=[*]Want hardcore? Turn auto-restore off in [i]Options → Mods → PZ Backup[/i].
+description=[*]After a restore, check the save's mods ([i]Load -> save -> Mods[/i]) and re-enable PZ Backup if needed.
+description=[*]Want hardcore? Turn auto-restore off in [i]Options -> Mods -> PZ Backup[/i].
 description=[/list]
 description=
 description=[hr][/hr]
 description=
-description=[h1]🇧🇷 Português[/h1]
+description=[h1]Português (pt-BR)[/h1]
 description=Você passou três semanas montando a base perfeita. Aí abriu uma porta sem olhar. Acontece.
 description=
-description=O [b]PZ Backup[/b] copia seu save [b]enquanto você joga[/b] — a cada 5 minutos e quando você aperta [b]F8[/b]. Morreu? Ele restaura o backup mais recente, reabre o jogo e você só clica em [b]Continuar[/b].
+description=O [b]PZ Backup[/b] copia seu save [b]enquanto você joga[/b] - a cada 5 minutos e quando você aperta [b]F8[/b]. Morreu? Ele restaura o backup mais recente, reabre o jogo e você só clica em [b]Continuar[/b].
 description=
-description=[h2]⚠ Precisa também do script PZ Backup[/h2]
+description=[h2]Precisa também do script PZ Backup[/h2]
 description=O Lua do jogo não copia pastas, então quem faz o backup é um script pequeno que roda junto com o jogo (Linux e Windows).
 description=[b]Baixe aqui (grátis, com instalador):[/b] [url=https://github.com/ahlrodrigues/PZBackup/releases]github.com/ahlrodrigues/PZBackup[/url]
 description=
@@ -49,17 +49,18 @@ description=
 description=[list]
 description=[*][b]Backup automático[/b] a cada 5 min e ao fechar o jogo
 description=[*][b]F8[/b] = backup agora. [b]F9[/b] = janela de restauração
-description=[*][b]Morreu? Volta![/b] Contagem de 10 s → o jogo fecha, restaura o backup mais recente [i]daquele mundo[/i] e reabre → [b]Continuar[/b]
+description=[*][b]Morreu? Volta![/b] Contagem de 10 s -> o jogo fecha, restaura o backup mais recente [i]daquele mundo[/i] e reabre -> [b]Continuar[/b]
 description=[*][b]Não salva defunto[/b]: com o personagem morto, nenhum backup é feito
 description=[*][b]Faxina[/b] dos saves de personagem morto (guardados por segurança)
 description=[*]Botão [b]Ver log[/b] com cores, dentro do jogo
+description=[*]Em português: marque [i]Options -> Mods -> PZ Backup -> Portugues (pt-BR)[/i]
 description=[/list]
 description=
 description=[img]https://raw.githubusercontent.com/ahlrodrigues/PZBackup/main/docs/img/morreu-pt.png[/img]
 description=
-description=[b]Dica:[/b] mordida é pra sempre — se o backup mais novo for de depois da mordida, use [i]Escolher outro[/i].
+description=[b]Dica:[/b] mordida é pra sempre - se o backup mais novo for de depois da mordida, use [i]Escolher outro[/i].
 description=
 description=[hr][/hr]
-description=Build 42 (tested on 42.21.0) · Single player · Open source, [url=https://github.com/ahlrodrigues/PZBackup/blob/main/LICENSE]MIT[/url]
+description=Build 42 (tested on 42.21.0) | Single player | Open source, [url=https://github.com/ahlrodrigues/PZBackup/blob/main/LICENSE]MIT[/url]
 tags=Build 42;Interface;Misc
 visibility=private

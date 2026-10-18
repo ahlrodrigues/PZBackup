@@ -1,28 +1,29 @@
 #!/bin/bash
-# instalar.sh — Instalador do PZ Backup. Verifica o sistema e instala a versão certa.
-# Uso: bash instalar.sh
+# install.sh — PZ Backup installer. Checks the OS and installs the right version.
+# Usage: bash install.sh
 
-PACOTE="$(cd "$(dirname "$0")" && pwd)"
-verde() { printf '  \033[32m- %s\033[0m\n' "$1"; }
-erro()  { printf '\n\033[31mERRO: %s\033[0m\n' "$1"; exit 1; }
+PKG="$(cd "$(dirname "$0")" && pwd)"
+ok()   { printf '  \033[32m- %s\033[0m\n' "$1"; }
+warn() { printf '  \033[33m! %s\033[0m\n' "$1"; }
+fail() { printf '\n\033[31mERROR: %s\033[0m\n' "$1"; exit 1; }
 
 echo
-echo "=== Instalador PZ Backup ==="
+echo "=== PZ Backup installer ==="
 echo
 
-# 1. Sistema operacional
+# 1. Operating system
 case "$(uname -s)" in
   Linux) ;;
   MINGW*|MSYS*|CYGWIN*)
-    erro "Você está no Windows. Feche este terminal e dê dois cliques em instalar.bat." ;;
+    fail "You're on Windows. Close this terminal and double-click install.bat." ;;
   Darwin)
-    erro "macOS ainda não é suportado." ;;
+    fail "macOS is not supported yet." ;;
   *)
-    erro "Sistema não reconhecido: $(uname -s)" ;;
+    fail "Unknown system: $(uname -s)" ;;
 esac
-verde "Sistema: Linux"
+ok "System: Linux"
 
-# 2. Onde o jogo guarda os saves (Steam nativa ou Flatpak)
+# 2. Where the game keeps its saves (native Steam or Flatpak)
 FLATPAK_HOME="$HOME/.var/app/com.valvesoftware.Steam"
 BASE=""
 for b in "$HOME/Zomboid" "$FLATPAK_HOME/Zomboid"; do
@@ -33,43 +34,44 @@ if [ -z "$BASE" ]; then
     [ -d "$b" ] && { BASE="$b"; break; }
   done
 fi
-[ -z "$BASE" ] && erro "Pasta Zomboid não encontrada. Abra o Project Zomboid uma vez antes de instalar."
+[ -z "$BASE" ] && fail "Zomboid folder not found. Start Project Zomboid once before installing."
 
-TIPO="Steam nativa"
-case "$BASE" in "$FLATPAK_HOME"/*) TIPO="Steam Flatpak" ;; esac
-verde "Pasta do jogo: $BASE ($TIPO)"
+KIND="native Steam"
+case "$BASE" in "$FLATPAK_HOME"/*) KIND="Flatpak Steam" ;; esac
+ok "Game folder: $BASE ($KIND)"
 
 # 3. Mod
 mkdir -p "$BASE/mods"
 rm -rf "$BASE/mods/PZBackup"
-cp -r "$PACOTE/arquivos/mod/PZBackup" "$BASE/mods/PZBackup"
+cp -r "$PKG/files/mod/PZBackup" "$BASE/mods/PZBackup"
+rm -f "$BASE/mods/PZBackup/common/.gitkeep"
 mkdir -p "$BASE/mods/PZBackup/common"
-verde "Mod instalado em $BASE/mods/PZBackup"
+ok "Mod installed in $BASE/mods/PZBackup"
 
 # 4. Script
-install -m 755 "$PACOTE/arquivos/linux/pz-backup.sh" "$BASE/pz-backup.sh"
-verde "Script instalado em $BASE/pz-backup.sh"
+install -m 755 "$PKG/files/linux/pz-backup.sh" "$BASE/pz-backup.sh"
+ok "Script installed in $BASE/pz-backup.sh"
 
-# 5. Dependências opcionais
-command -v python3 >/dev/null || echo "  ! python3 não encontrado: sem bipes e sem verificação extra do players.db (o mod ainda detecta a morte)"
+# 5. Optional dependencies
+command -v python3 >/dev/null || warn "python3 not found: no beeps and no extra players.db death check (the mod still detects deaths)"
 command -v paplay >/dev/null || command -v pw-play >/dev/null || command -v aplay >/dev/null \
-  || echo "  ! Nenhum player de áudio (paplay/pw-play/aplay): sem bipes"
+  || warn "No audio player found (paplay/pw-play/aplay): no beeps"
 
-# 6. O que falta fazer
+# 6. What's left to do
 cat <<EOF
 
-=== Pronto! Faltam dois passos ===
+=== Done! Two more steps ===
 
-1) Steam > botão direito em Project Zomboid > Propriedades > Geral >
-   Opções de inicialização. Cole no campo de texto:
+1) Steam > right-click Project Zomboid > Properties > General >
+   Launch Options. Paste this into the text field:
 
-   $BASE/pz-backup.sh jogo %command%
+   $BASE/pz-backup.sh game %command%
 
-2) No jogo: menu principal > Mods > ative "PZ Backup" (e também no seu save).
+2) In game: main menu > Mods > enable "PZ Backup" (also in your save's mod list).
 
-Dentro do jogo: F8 faz um backup manual, F9 abre a janela de restauração (com o botão Ver log).
-Ao morrer, o backup mais recente é restaurado sozinho (desligue em Opções > Mods).
-Para restaurar pelo terminal (com o jogo FECHADO):
+In game: F8 = backup now, F9 = restore window (with a View log button).
+When you die, the latest backup is restored by itself (turn off in Options > Mods).
+To restore from the terminal (with the game CLOSED):
    $BASE/pz-backup.sh list
    $BASE/pz-backup.sh restore N
 

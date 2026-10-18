@@ -1,12 +1,12 @@
 --[[
-  PZ Backup — janela "Ver log"
+  PZ Backup — "View log" window
 
-  O Lua do jogo só lê arquivos dentro de Zomboid/Lua/, e o log fica em
-  Zomboid/BackupsSaves/. Por isso o script mantém uma cópia das últimas
-  linhas em Zomboid/Lua/pzbackup_log.txt, que esta janela mostra.
+  The game's Lua can only read files inside Zomboid/Lua/, and the log lives in
+  Zomboid/BackupsSaves/. So the script keeps a copy of the last lines in
+  Zomboid/Lua/pzbackup_log.txt, which this window shows.
 
-  Abre pelo botão "Ver log" da janela de restauração (F9) ou em
-  Opções > Mods > PZ Backup > Ver log.
+  Opened by the "View log" button in the restore window (F9) or in
+  Options > Mods > PZ Backup > View log.
 ]]
 
 require "ISUI/ISPanel"
@@ -21,7 +21,7 @@ PZBackupLogJanela = ISPanel:derive("PZBackupLogJanela")
 local LARGURA, ALTURA = 720, 440
 local FONTE = UIFont.Small
 
--- Cor de cada linha conforme o tipo de registro
+-- Color of each line by entry type
 local function corDaLinha(l)
     local u = string.upper(l)
     if u:find("FALHA") or u:find("FAIL") or u:find("MORTO") or u:find("DEAD")
@@ -57,7 +57,7 @@ function PZBackupLogJanela:createChildren()
     self.lista.itemheight = getTextManager():getFontHeight(FONTE) + 6
     self.lista.font = FONTE
     self.lista.drawBorder = true
-    -- desenha cada linha com a sua cor
+    -- draw each line in its color
     self.lista.doDrawItem = function(lst, y, item, alt)
         local c = item.item or { r = 1, g = 1, b = 1 }
         lst:drawText(item.text, 8, y + 3, c.r, c.g, c.b, 1, lst.font)
@@ -81,7 +81,7 @@ function PZBackupLogJanela:prerender()
     self:drawText(rodape, 12, self.height - 62, 0.7, 0.7, 0.7, 1, FONTE)
 end
 
--- Mais recentes no topo
+-- Newest on top
 function PZBackupLogJanela:carregar()
     self.lista:clear()
     local linhas = PZBackup.lerLinhas(PZBackup.ARQ_LOG)
@@ -98,7 +98,7 @@ function PZBackupLogJanela:fechar()
     PZBackup.janelaLog = nil
 end
 
--- Abre (ou fecha, se já estiver aberta)
+-- Opens (or closes, if already open)
 function PZBackup.abrirLog()
     if PZBackup.janelaLog then
         PZBackup.janelaLog:fechar()

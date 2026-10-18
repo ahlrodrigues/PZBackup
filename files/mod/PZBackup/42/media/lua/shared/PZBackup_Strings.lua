@@ -1,17 +1,21 @@
 --[[
-  PZ Backup — textos do mod em português (pt) e inglês (en)
+  PZ Backup — mod strings in English (en) and Portuguese (pt)
 
-  O idioma segue o do jogo: português se o jogo estiver em PT/PTBR, inglês
-  em qualquer outro. Os textos não têm acento porque a fonte do jogo pode não
-  ter os caracteres.
+  English is the main language; Portuguese (pt-BR) is optional, turned on in
+  Options > Mods > PZ Backup > "Portugues (pt-BR)". The strings have no accents
+  because the game font may not have those characters.
 
-  Uso: PZBackup.T("chave", arg1, arg2...)  -> string.format com os argumentos
+  Usage: PZBackup.T("key", arg1, arg2...)  -> string.format with the arguments
 ]]
 
 PZBackup = PZBackup or {}
 
 local TEXTOS = {
-    -- Opções (Opções > Mods > PZ Backup)
+    -- Options (Options > Mods > PZ Backup)
+    opt_ptbr                = { pt = "Portugues (pt-BR)",
+                                en = "Portugues (pt-BR)" },
+    opt_ptbr_dica           = { pt = "Show PZ Backup in Brazilian Portuguese / Mostra o PZ Backup em portugues do Brasil",
+                                en = "Show PZ Backup in Brazilian Portuguese / Mostra o PZ Backup em portugues do Brasil" },
     opt_tecla_backup        = { pt = "Fazer backup agora",
                                 en = "Back up now" },
     opt_tecla_backup_dica   = { pt = "Pede ao script uma copia do save, na hora",
@@ -34,10 +38,10 @@ local TEXTOS = {
                                 en = "Counts 10 s, closes the game, restores this world's latest backup and reopens. Then just click Continue." },
     opt_apagar_mortos       = { pt = "Remover saves de personagem morto ao fechar o jogo",
                                 en = "Remove dead-character saves when the game closes" },
-    opt_apagar_mortos_dica  = { pt = "O save onde o personagem morreu sai da lista Carregar (vai para BackupsSaves/substituidos)",
-                                en = "The save where your character died leaves the Load list (moved to BackupsSaves/substituidos)" },
+    opt_apagar_mortos_dica  = { pt = "O save onde o personagem morreu sai da lista Carregar (vai para BackupsSaves/replaced)",
+                                en = "The save where your character died leaves the Load list (moved to BackupsSaves/replaced)" },
 
-    -- Mensagens sobre o personagem
+    -- Messages about the character
     msg_morto_bloqueado     = { pt = "Personagem morto: backup bloqueado. F9 restaura um backup",
                                 en = "Character is dead: backup blocked. F9 restores a backup" },
     msg_script_parado       = { pt = "Script de backup nao esta rodando. Instale: %s",
@@ -57,7 +61,7 @@ local TEXTOS = {
     msg_morto_f9            = { pt = "PZ Backup: aperte F9 para restaurar um backup",
                                 en = "PZ Backup: press F9 to restore a backup" },
 
-    -- Painel de restauração automática
+    -- Auto-restore panel
     auto_titulo             = { pt = "Personagem morto",
                                 en = "You died" },
     auto_contagem           = { pt = "Restaurando o backup mais recente deste mundo em %d s.",
@@ -79,7 +83,7 @@ local TEXTOS = {
     falha_pedido_restauro   = { pt = "Falha ao gravar o pedido de restauracao",
                                 en = "Could not write the restore request" },
 
-    -- Janela de restauração
+    -- Restore window
     jan_titulo              = { pt = "PZ Backup - Restaurar backup",
                                 en = "PZ Backup - Restore a backup" },
     jan_btn_restaurar       = { pt = "Restaurar",
@@ -98,10 +102,10 @@ local TEXTOS = {
                                 en = "Select a backup from the list." },
     jan_script_parado       = { pt = "Script de backup nao esta rodando. Abra o jogo pela Steam/atalho com o PZ Backup.",
                                 en = "Backup script is not running. Start the game through Steam/the PZ Backup shortcut." },
-    jan_confirmar           = { pt = "Restaurar o backup:\n%s\n\nO jogo vai FECHAR, o backup sera restaurado e o jogo REABRE sozinho.\nO progresso desde esse backup sera perdido (fica guardado em 'substituidos').\n\nDEPOIS: ao carregar, confira os mods do save (Carregar > Mods).\nReative o PZ Backup e os mods que usa; desative os que nao quiser.",
-                                en = "Restore this backup:\n%s\n\nThe game will CLOSE, the backup will be restored and the game REOPENS by itself.\nProgress made since this backup will be lost (kept in 'substituidos').\n\nAFTERWARDS: when loading, check the save's mods (Load > Mods).\nRe-enable PZ Backup and your mods; disable the ones you don't want." },
+    jan_confirmar           = { pt = "Restaurar o backup:\n%s\n\nO jogo vai FECHAR, o backup sera restaurado e o jogo REABRE sozinho.\nO progresso desde esse backup sera perdido (fica guardado em 'replaced').\n\nDEPOIS: ao carregar, confira os mods do save (Carregar > Mods).\nReative o PZ Backup e os mods que usa; desative os que nao quiser.",
+                                en = "Restore this backup:\n%s\n\nThe game will CLOSE, the backup will be restored and the game REOPENS by itself.\nProgress made since this backup will be lost (kept in 'replaced').\n\nAFTERWARDS: when loading, check the save's mods (Load > Mods).\nRe-enable PZ Backup and your mods; disable the ones you don't want." },
 
-    -- Janela de log
+    -- Log window
     log_titulo              = { pt = "PZ Backup - Log",
                                 en = "PZ Backup - Log" },
     log_vazio               = { pt = "Log vazio. O script ainda nao registrou nada (ou nao esta rodando).",
@@ -110,37 +114,15 @@ local TEXTOS = {
                                 en = "Last %d lines, newest first. Full log in BackupsSaves/pz-backup.log" },
 }
 
--- Códigos de idioma do jogo que contam como português
-local CODIGOS_PT = { PT = true, PTBR = true, ["PT_BR"] = true, ["PT-BR"] = true }
-
--- Código do idioma atual do jogo (ex.: "EN", "PTBR"), ou nil se não conseguir ler
-local function codigoIdioma()
-    local candidatos = {}
-    -- Language:name() devolve o código ("EN", "PTBR"...)
-    pcall(function() table.insert(candidatos, Translator.getLanguage():name()) end)
-    pcall(function() table.insert(candidatos, getCore():getOptionLanguageName()) end)
-    pcall(function() table.insert(candidatos, tostring(Translator.getLanguage())) end)
-    for _, c in ipairs(candidatos) do
-        if type(c) == "string" or type(c) == "userdata" then
-            local s = string.upper(tostring(c))
-            -- aceita só um código curto e limpo (2 a 5 letras), nunca um texto qualquer
-            if s:match("^[A-Z][A-Z][A-Z_%-]?[A-Z]?[A-Z]?$") then return s, candidatos end
-        end
-    end
-    return nil, candidatos
-end
-
--- "pt" se o jogo estiver em português; "en" para qualquer outro idioma
+-- English is the main language. Portuguese (pt-BR) is an option:
+-- Options > Mods > PZ Backup > "Portugues (pt-BR)".
+-- (PZBackup.opcaoPtBr is created in client/PZBackup.lua)
 function PZBackup.idioma()
-    if PZBackup._idioma then return PZBackup._idioma end
-    local codigo, candidatos = codigoIdioma()
-    local idioma = (codigo and CODIGOS_PT[codigo]) and "pt" or "en"
-    PZBackup._idioma = idioma
-    local vistos = {}
-    for _, c in ipairs(candidatos or {}) do table.insert(vistos, tostring(c)) end
-    print("[PZBackup] idioma do jogo: " .. tostring(codigo) .. " -> textos em '" .. idioma ..
-          "' (lido: " .. table.concat(vistos, " | ") .. ")")
-    return idioma
+    if PZBackup.opcaoPtBr then
+        local ok, v = pcall(function() return PZBackup.opcaoPtBr:getValue() end)
+        if ok and v == true then return "pt" end
+    end
+    return "en"
 end
 
 function PZBackup.T(chave, ...)

@@ -5,7 +5,7 @@
 **Downloads:** <https://github.com/ahlrodrigues/PZBackup/releases> ·
 **Steam Workshop:** <https://steamcommunity.com/sharedfiles/filedetails/?id=3821180981> ·
 *English:* [README.md](README.md)
-Versão 1.1.1 · Mod ID `PZBackupAHLR` · Workshop ID `3821180981` · Licença [MIT](LICENSE) · Build 42
+Versão 1.2.0 · Mod ID `PZBackupAHLR` · Workshop ID `3821180981` · Licença [MIT](LICENSE) · Build 42
 
 Você passou três semanas montando a base perfeita. Cerca dupla, horta, gerador,
 estoque de feijão enlatado pra sobreviver ao fim do mundo duas vezes. Aí abriu uma
@@ -32,7 +32,7 @@ mão, sem chorar no Discord.
 | 🛡️ **Não salva defunto** | Com o personagem morto, nenhum backup é feito — os bons ficam intactos |
 | 🧹 **Faxina automática** | Ao fechar o jogo, o save do personagem morto sai da lista *Carregar* (fica guardado, calma) |
 | 📜 **Ver log** | Botão no jogo mostra tudo que o PZ Backup fez, com cores |
-| 🌎 **PT-BR e inglês** | O mod fala o idioma do seu jogo |
+| 🌎 **Inglês e PT-BR** | Inglês por padrão; português do Brasil é só marcar uma caixinha nas opções |
 | 🗂️ **Histórico** | 10 backups por mundo + 5 saves substituídos de reserva |
 | 🔊 **Bipes** | Dois bipes subindo = deu bom. Dois descendo = deu ruim |
 
@@ -85,10 +85,13 @@ Adicione os prints em docs/img/ com estes nomes e apague esta linha de comentár
 existir. Depois baixe o `PZBackup-vX.Y.Z.zip` em
 [Releases](https://github.com/ahlrodrigues/PZBackup/releases) e descompacte.
 
+> Os instaladores falam inglês (é o idioma principal do projeto). As mensagens do
+> script no terminal e no jogo seguem a opção de idioma do mod.
+
 ### 🐧 Linux (Steam nativa ou Flatpak)
 
 ```bash
-bash instalar.sh
+bash install.sh
 ```
 
 O instalador acha sua pasta `Zomboid`, instala o mod e o script e mostra o comando
@@ -96,7 +99,7 @@ certinho pra colar na Steam: botão direito em **Project Zomboid → Propriedade
 Geral → Opções de inicialização**:
 
 ```
-/home/SEU_USUARIO/Zomboid/pz-backup.sh jogo %command%
+/home/SEU_USUARIO/Zomboid/pz-backup.sh game %command%
 ```
 
 Pronto: daqui pra frente é só jogar pela Steam normalmente. O script liga junto com
@@ -104,7 +107,7 @@ o jogo e desliga quando ele fecha.
 
 ### 🪟 Windows 10/11
 
-Dois cliques no **`instalar.bat`**. Se o Windows ficar desconfiado ("editor
+Dois cliques no **`install.bat`**. Se o Windows ficar desconfiado ("editor
 desconhecido"), clique em *Mais informações → Executar assim mesmo*.
 
 Ele cria três atalhos na Área de Trabalho:
@@ -112,8 +115,8 @@ Ele cria três atalhos na Área de Trabalho:
 | Atalho | Pra que serve |
 |---|---|
 | **Project Zomboid + Backup** | Abre o jogo com o backup ligado. **Jogue sempre por aqui.** |
-| **PZ Backup - Salvar agora** | Backup manual (também **Ctrl+Alt+B**) |
-| **PZ Backup - Restaurar** | Lista os backups e restaura o escolhido |
+| **PZ Backup - Save now** | Backup manual (também **Ctrl+Alt+B**) |
+| **PZ Backup - Restore** | Lista os backups e restaura o escolhido |
 
 > No Windows, abrir direto pela Steam **não** liga o backup automático. A Steam do
 > Windows não deixa "embrulhar" o jogo com um script, então o atalho faz esse papel.
@@ -166,7 +169,7 @@ com ele aberto faria o save sumir da lista — e ninguém quer isso.
 Também dá pelo terminal, **com o jogo fechado**:
 
 - **Linux:** `pz-backup.sh list` e depois `pz-backup.sh restore N`
-- **Windows:** atalho *PZ Backup - Restaurar*
+- **Windows:** atalho *PZ Backup - Restore*
 
 ### 🔌 Depois de restaurar: confira os mods
 
@@ -187,12 +190,12 @@ E sim, o nome do mundo é a data em que ele foi **criado**. Se aparecer "13" ali
 13 horas, não dia 13. (A gente também se confundiu.)
 
 O backup continua em `BackupsSaves`, e o save que estava lá antes (o do defunto) vai
-pra `BackupsSaves/substituidos/`. Nada some sem querer.
+pra `BackupsSaves/replaced/`. Nada some sem querer.
 
 ### 🧹 Faxina de saves de morto
 
 Com a opção ligada (padrão), **ao fechar o jogo** o save onde o personagem morreu sai
-da lista *Carregar*. Ele não é apagado na hora: vai pra `substituidos/` (ficam os 5
+da lista *Carregar*. Ele não é apagado na hora: vai pra `replaced/` (ficam os 5
 mais recentes).
 
 | | Como funciona |
@@ -205,7 +208,7 @@ mais recentes).
 
 Como ele sabe que você morreu: no **Linux**, lê o `players.db` de cada save (com
 Python 3) — pega até saves antigos de mortos. No **Windows**, usa o aviso do mod.
-Pra faxinar na hora, com o jogo fechado: `pz-backup.sh limpar` / `pz-backup.ps1 limpar`.
+Pra faxinar na hora, com o jogo fechado: `pz-backup.sh clean` / `pz-backup.ps1 clean`.
 
 ### 📜 Ver log
 
@@ -235,19 +238,29 @@ No terminal: `pz-backup.sh log` (ou `pz-backup.ps1 log`). O log completo fica em
 
 ## Opções e ajustes
 
-**No jogo** (*Opções → Mods → PZ Backup*): teclas F8/F9, restaurar ao morrer,
-remover saves de morto, botões *Restaurar backup...* e *Ver log...*.
+**No jogo** (*Opções → Mods → PZ Backup*): caixinha de idioma **Portugues (pt-BR)**,
+teclas F8/F9, restaurar ao morrer, remover saves de morto, botões *Restaurar backup...*
+e *Ver log...*.
+
+### 🌎 Idioma
+
+O PZ Backup fala **inglês** por padrão (é o idioma principal do mod). Quer em
+português? Marque **Options → Mods → PZ Backup → Portugues (pt-BR)** e aplique. Janelas,
+mensagens e o log do script mudam na hora; os nomes das opções mudam depois de
+reiniciar o jogo. Desmarque pra voltar ao inglês.
+
+> Repara que as opções aparecem em inglês até você marcar a caixinha — é de propósito.
 
 **No começo do script** (`pz-backup.sh` ou `pz-backup.ps1`):
 
 | Variável | Padrão | Pra quê |
 |---|---|---|
-| `INTERVALO` / `$Intervalo` | 5 | Minutos entre backups automáticos |
-| `MANTER` / `$Manter` | 10 | Backups guardados por mundo |
-| `MANTER_SUBST` / `$ManterSubst` | 5 | Saves substituídos guardados |
-| `SOM` / `$Som` | ligado | Bipes |
-| `APAGAR_MORTOS` / `$ApagarMortos` | vazio | Vazio = segue o mod; `1` sempre; `0` nunca |
-| `IDIOMA` / `$Idioma` | vazio | Vazio = segue o mod; `pt` ou `en` força |
+| `INTERVAL` / `$Interval` | 5 | Minutos entre backups automáticos |
+| `KEEP` / `$Keep` | 10 | Backups guardados por mundo |
+| `KEEP_REPLACED` / `$KeepReplaced` | 5 | Saves substituídos guardados |
+| `SOUND` / `$Sound` | ligado | Bipes |
+| `REMOVE_DEAD` / `$RemoveDead` | vazio | Vazio = segue o mod; `1` sempre; `0` nunca |
+| `LANGUAGE` / `$Language` | vazio | Vazio = segue o mod (inglês, a menos que o pt-BR esteja marcado); `pt` ou `en` força |
 
 ## Onde ficam as coisas
 
@@ -266,11 +279,11 @@ Na Steam Flatpak sem acesso à pasta pessoal, troque `~/Zomboid` por
 
 | Sintoma | O que fazer |
 |---|---|
-| F8 não faz nada | Procure `PZBackup` em `Zomboid/console.txt` — deve ter `[PZBackup] carregado`. Confira se o mod está ativo **no save** |
+| F8 não faz nada | Procure `PZBackup` em `Zomboid/console.txt` — deve ter `[PZBackup] loaded`. Confira se o mod está ativo **no save** |
 | "Backup solicitado" e nada acontece | O script não está rodando. Linux: confira a opção de inicialização. Windows: jogue pelo atalho *Project Zomboid + Backup* |
 | "Script de backup não está rodando" | Mesma coisa de cima 👆 |
 | (Linux) O jogo não abre | Apague a opção de inicialização e rode `chmod +x ~/Zomboid/pz-backup.sh` |
-| (Windows) Atalho abre e fecha | Rode o `instalar.bat` de novo |
+| (Windows) Atalho abre e fecha | Rode o `install.bat` de novo |
 | Save restaurado não aparece | O jogo estava aberto na restauração. Feche e abra |
 | "Feche o Project Zomboid antes de restaurar" | Feche de verdade (não basta voltar ao menu) ou use o F9 |
 | Depois de restaurar, F8/F9 mudos | Reative o PZ Backup em *Carregar → save → Mods* |
@@ -300,7 +313,7 @@ Por arquivos de texto em `Zomboid/Lua/`:
 1. Versão no `CHANGELOG.md`, nos cabeçalhos dos scripts e no `mod.info`.
 2. `git commit`, `git tag vX.Y.Z`, `git push --follow-tags` (o Forgejo espelha no GitHub).
 3. No GitHub, crie a Release da tag e anexe o `PZBackup-vX.Y.Z.zip`.
-4. Workshop: `bash workshop/preparar-workshop.sh` e, no jogo,
+4. Workshop: `bash workshop/prepare-workshop.sh` e, no jogo,
    *Workshop → Criar e atualizar conteúdo → PZBackup*.
 
 ---

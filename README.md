@@ -5,7 +5,7 @@
 **Downloads:** <https://github.com/ahlrodrigues/PZBackup/releases> ·
 **Steam Workshop:** <https://steamcommunity.com/sharedfiles/filedetails/?id=3821180981> ·
 *Português:* [LEIAME.md](LEIAME.md)
-Version 1.1.1 · Mod ID `PZBackupAHLR` · Workshop ID `3821180981` · [MIT](LICENSE) license · Build 42
+Version 1.2.0 · Mod ID `PZBackupAHLR` · Workshop ID `3821180981` · [MIT](LICENSE) license · Build 42
 
 You spent three weeks building the perfect base. Double fence, farm, generator,
 enough canned beans to survive the apocalypse twice. Then you opened one door
@@ -32,7 +32,7 @@ on Discord.
 | 🛡️ **No zombie-fying your backups** | No backups are taken while your character is dead — the good ones stay safe |
 | 🧹 **Auto cleanup** | When the game closes, the dead character's save leaves the *Load* list (it's kept, relax) |
 | 📜 **View log** | In-game button shows everything PZ Backup did, color-coded |
-| 🌎 **English & PT-BR** | The mod speaks your game's language |
+| 🌎 **English & PT-BR** | English by default; Brazilian Portuguese is one checkbox away in the options |
 | 🗂️ **History** | 10 backups per world + 5 replaced saves just in case |
 | 🔊 **Beeps** | Two rising beeps = all good. Two falling = something's off |
 
@@ -85,13 +85,11 @@ Add the screenshots to docs/img/ with these names and remove this comment:
 exists. Then grab `PZBackup-vX.Y.Z.zip` from
 [Releases](https://github.com/ahlrodrigues/PZBackup/releases) and extract it.
 
-> The installers and the script's terminal messages are in Portuguese for now —
-> the in-game texts follow your game's language. Commands below are all you need.
 
 ### 🐧 Linux (native Steam or Flatpak)
 
 ```bash
-bash instalar.sh
+bash install.sh
 ```
 
 The installer finds your `Zomboid` folder, installs the mod and the script, and
@@ -99,7 +97,7 @@ prints the exact command to paste into Steam: right-click **Project Zomboid →
 Properties → General → Launch Options**:
 
 ```
-/home/YOUR_USER/Zomboid/pz-backup.sh jogo %command%
+/home/YOUR_USER/Zomboid/pz-backup.sh game %command%
 ```
 
 That's it: just play through Steam as usual. The script starts with the game and
@@ -107,7 +105,7 @@ stops when it closes.
 
 ### 🪟 Windows 10/11
 
-Double-click **`instalar.bat`**. If Windows gets suspicious ("unknown publisher"),
+Double-click **`install.bat`**. If Windows gets suspicious ("unknown publisher"),
 click *More info → Run anyway*.
 
 It creates three desktop shortcuts:
@@ -115,8 +113,8 @@ It creates three desktop shortcuts:
 | Shortcut | What it's for |
 |---|---|
 | **Project Zomboid + Backup** | Starts the game with backups on. **Always play through this one.** |
-| **PZ Backup - Salvar agora** | Manual backup (also **Ctrl+Alt+B**) |
-| **PZ Backup - Restaurar** | Lists your backups and restores the one you pick |
+| **PZ Backup - Save now** | Manual backup (also **Ctrl+Alt+B**) |
+| **PZ Backup - Restore** | Lists your backups and restores the one you pick |
 
 > On Windows, launching straight from Steam does **not** start automatic backups.
 > Steam on Windows can't "wrap" the game with a script, so the shortcut does that job.
@@ -168,7 +166,7 @@ Restoring while it's open would make the save vanish from the list — not the v
 From a terminal, **with the game closed**:
 
 - **Linux:** `pz-backup.sh list`, then `pz-backup.sh restore N`
-- **Windows:** the *PZ Backup - Restaurar* shortcut
+- **Windows:** the *PZ Backup - Restore* shortcut
 
 ### 🔌 After restoring: check your mods
 
@@ -189,13 +187,13 @@ And yes, the world name is the date it was **created**. If you see "13" there, i
 1 PM, not the 13th. (We got confused too.)
 
 The backup stays in `BackupsSaves`, and the save that was there before (the dead
-one) goes to `BackupsSaves/substituidos/`. Nothing disappears by accident.
+one) goes to `BackupsSaves/replaced/`. Nothing disappears by accident.
 
 ### 🧹 Dead-save cleanup
 
 With this option on (default), **when the game closes** the save where your
 character died leaves the *Load* list. It isn't deleted right away: it goes to
-`substituidos/` (the 5 most recent are kept).
+`replaced/` (the 5 most recent are kept).
 
 | | How it works |
 |---|---|
@@ -208,7 +206,7 @@ character died leaves the *Load* list. It isn't deleted right away: it goes to
 How it knows you died: on **Linux** it reads each save's `players.db` (with
 Python 3) — it even catches old saves of dead characters. On **Windows** it uses the
 mod's death notice. To clean up right now, with the game closed:
-`pz-backup.sh limpar` / `pz-backup.ps1 limpar`.
+`pz-backup.sh clean` / `pz-backup.ps1 clean`.
 
 ### 📜 View log
 
@@ -238,19 +236,27 @@ From a terminal: `pz-backup.sh log` (or `pz-backup.ps1 log`). The full log lives
 
 ## Options and settings
 
-**In game** (*Options → Mods → PZ Backup*): F8/F9 keys, restore on death, remove
-dead saves, *Restore a backup...* and *View log...* buttons.
+**In game** (*Options → Mods → PZ Backup*): **Portugues (pt-BR)** language checkbox,
+F8/F9 keys, restore on death, remove dead saves, *Restore a backup...* and
+*View log...* buttons.
+
+### 🌎 Language
+
+PZ Backup speaks **English** by default. Want Brazilian Portuguese? Tick
+**Options → Mods → PZ Backup → Portugues (pt-BR)** and apply. Windows, messages and
+the script's log switch right away; the option names themselves switch after a
+game restart. Untick it to go back to English.
 
 **At the top of the script** (`pz-backup.sh` or `pz-backup.ps1`):
 
 | Variable | Default | What for |
 |---|---|---|
-| `INTERVALO` / `$Intervalo` | 5 | Minutes between automatic backups |
-| `MANTER` / `$Manter` | 10 | Backups kept per world |
-| `MANTER_SUBST` / `$ManterSubst` | 5 | Replaced saves kept |
-| `SOM` / `$Som` | on | Beeps |
-| `APAGAR_MORTOS` / `$ApagarMortos` | empty | Empty = follow the mod; `1` always; `0` never |
-| `IDIOMA` / `$Idioma` | empty | Empty = follow the mod; `pt` or `en` to force |
+| `INTERVAL` / `$Interval` | 5 | Minutes between automatic backups |
+| `KEEP` / `$Keep` | 10 | Backups kept per world |
+| `KEEP_REPLACED` / `$KeepReplaced` | 5 | Replaced saves kept |
+| `SOUND` / `$Sound` | on | Beeps |
+| `REMOVE_DEAD` / `$RemoveDead` | empty | Empty = follow the mod; `1` always; `0` never |
+| `LANGUAGE` / `$Language` | empty | Empty = follow the mod (English unless pt-BR is on); `pt` or `en` to force |
 
 ## Where things live
 
@@ -269,11 +275,11 @@ instead of `~/Zomboid` (the installer figures it out).
 
 | Symptom | What to do |
 |---|---|
-| F8 does nothing | Look for `PZBackup` in `Zomboid/console.txt` — you should see `[PZBackup] carregado`. Check the mod is enabled **in the save** |
+| F8 does nothing | Look for `PZBackup` in `Zomboid/console.txt` — you should see `[PZBackup] loaded`. Check the mod is enabled **in the save** |
 | "Backup requested" and nothing happens | The script isn't running. Linux: check the launch option. Windows: play through the *Project Zomboid + Backup* shortcut |
 | "Backup script is not running" | Same as above 👆 |
 | (Linux) The game won't start | Remove the launch option and run `chmod +x ~/Zomboid/pz-backup.sh` |
-| (Windows) Shortcut opens and closes | Run `instalar.bat` again |
+| (Windows) Shortcut opens and closes | Run `install.bat` again |
 | Restored save doesn't show up | The game was open during the restore. Close and reopen it |
 | "Close Project Zomboid before restoring" | Really close it (main menu isn't enough) or use F9 |
 | F8/F9 silent after a restore | Re-enable PZ Backup in *Load → save → Mods* |
@@ -285,13 +291,15 @@ Bug hunting: `grep -an -B3 -A10 "PZBackup" ~/Zomboid/console.txt | tail -60`
 
 ## Under the hood: how the mod and the script talk
 
-Through text files in `Zomboid/Lua/`:
+Through text files in `Zomboid/Lua/`. Their names and values are in Portuguese on purpose:
+the Workshop updates the mod on its own, but the script only changes when you reinstall,
+so renaming them would break mixed versions.
 
 | File | Direction | Content |
 |---|---|---|
 | `pzbackup_pedido.txt` | mod → script | backup request (F8) |
 | `pzbackup_restaurar.txt` | mod → script | backup to restore on exit, or `AUTO mode/world` |
-| `pzbackup_estado.txt` | mod → script | `vivo`, `morto`, `restaurado` or `limpo` + `mode/world` |
+| `pzbackup_estado.txt` | mod → script | `vivo` (alive), `morto` (dead), `restaurado` (restored) or `limpo` (cleaned) + `mode/world` |
 | `pzbackup_config.txt` | mod → script | `apagar_mortos=1/0`, `idioma=pt/en` |
 | `pzbackup_status.txt` | script → mod | `id\|ok\|message` or `id\|erro\|message` |
 | `pzbackup_lista.txt` | script → mod | available backups: `name\|label` |

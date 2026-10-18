@@ -1,28 +1,32 @@
-# pz-backup.ps1 — Backup periódico e manual do save do Project Zomboid (Windows)
-# Versao 1.1.1 — https://github.com/ahlrodrigues/PZBackup — Licenca MIT
+﻿# pz-backup.ps1 — automatic and manual save backups for Project Zomboid (Windows)
+# Version 1.2.0 — https://github.com/ahlrodrigues/PZBackup — MIT License
 #
-# Uso (PowerShell):
-#   pz-backup.ps1 save        -> faz um backup agora
-#   pz-backup.ps1 loop        -> faz backup a cada $Intervalo minutos (deixe a janela aberta)
-#   pz-backup.ps1 list        -> lista os backups existentes
-#   pz-backup.ps1 restore     -> restaura o backup mais recente (com o jogo FECHADO)
-#   pz-backup.ps1 restore N   -> restaura o N-ésimo backup da lista (1 = mais recente)
-#   pz-backup.ps1 jogo        -> abre o jogo pela Steam, faz backups enquanto ele estiver
-#                                aberto, atende a tecla do mod e faz um backup final ao fechar
-#   pz-backup.ps1 escolher    -> mostra a lista e pergunta qual backup restaurar
-#   pz-backup.ps1 limpar      -> remove agora o save do personagem morto (jogo FECHADO)
-#   pz-backup.ps1 log         -> mostra as ultimas linhas do log
+# Usage (PowerShell):
+#   pz-backup.ps1 save        -> back up now
+#   pz-backup.ps1 loop        -> back up every $Interval minutes (keep the window open)
+#   pz-backup.ps1 list        -> list existing backups
+#   pz-backup.ps1 restore     -> restore the most recent backup (game CLOSED)
+#   pz-backup.ps1 restore N   -> restore backup number N from the list (1 = newest)
+#   pz-backup.ps1 game        -> starts the game through Steam, backs up while it's open,
+#                                serves the mod's keys and takes a final backup on exit
+#   pz-backup.ps1 choose      -> shows the list and asks which backup to restore
+#   pz-backup.ps1 clean       -> remove dead-character saves now (game CLOSED)
+#   pz-backup.ps1 log         -> show the last log lines
+#   Older Portuguese action names still work: jogo = game, escolher = choose, limpar = clean.
 
 param([string]$Acao = "", [int]$Numero = 1)
 
-$Intervalo = 5                                   # minutos entre backups automáticos
-$Manter    = 10                                  # quantos backups manter por mundo
-$ManterSubst = 5                                 # quantos saves substituidos manter (no total)
-$ApagarMortos = ""                               # saves de personagem morto ao fechar o jogo:
-                                                 #   "" = segue a opcao do mod (padrao: ligado)
-                                                 #   "1" = sempre remove, "0" = nunca remove
-$Som       = $true                               # $false = silencioso
-$SteamAppId = 108600                             # Project Zomboid na Steam
+# ---------------- Settings ----------------
+$Interval     = 5                                # minutes between automatic backups
+$Keep         = 10                               # backups kept per world
+$KeepReplaced = 5                                # replaced saves kept (in total)
+$RemoveDead   = ""                               # dead-character saves when the game closes:
+                                                 #   "" = follow the mod option (default: on)
+                                                 #   "1" = always remove, "0" = never remove
+$Sound        = $true                            # $false = silent
+$Language     = ""                               # messages: "" = follow the mod (default English); "pt" or "en"
+# ------------------------------------------
+$SteamAppId = 108600                             # Project Zomboid on Steam
 $Processos = @("ProjectZomboid64", "ProjectZomboid32", "ProjectZomboid")
 
 $Base = Join-Path $env:USERPROFILE "Zomboid"
@@ -31,40 +35,43 @@ $Destino = Join-Path $Base "BackupsSaves"
 $LuaDir = Join-Path $Base "Lua"
 $Log = Join-Path $Destino "pz-backup.log"
 $script:Origem = "MANUAL"
-$Utf8 = New-Object System.Text.UTF8Encoding($false)   # UTF-8 sem BOM (o Lua lê melhor)
+$Utf8 = New-Object System.Text.UTF8Encoding($false)   # UTF-8 without BOM (easier for Lua)
 
 New-Item -ItemType Directory -Force -Path $Destino | Out-Null
+$Subst = Join-Path $Destino "replaced"           # saves replaced by a restore or removed by cleanup
+# Migration: older versions used the "substituidos" folder
+$antigo = Join-Path $Destino "substituidos"
+if ((Test-Path $antigo) -and -not (Test-Path $Subst)) { Move-Item $antigo $Subst }
 
 function Tocar([string]$Tipo) {
-    if (-not $Som) { return }
+    if (-not $Sound) { return }
     try {
         if ($Tipo -eq "erro") { [System.Media.SystemSounds]::Hand.Play() }
         else { [System.Media.SystemSounds]::Asterisk.Play() }
     } catch { }
 }
 
-# Remove acentos do texto mostrado dentro do jogo (a fonte do jogo pode nao ter)
+# Strips accents from text shown in game (the game font may lack them)
 function Sem-Acento([string]$t) {
     ($t.Normalize([Text.NormalizationForm]::FormD).ToCharArray() |
         Where-Object { [Globalization.CharUnicodeInfo]::GetUnicodeCategory($_) -ne 'NonSpacingMark' }) -join ''
 }
 
-# Idioma das mensagens: o que o mod informou (idioma=pt|en em pzbackup_config.txt);
-# sem o mod, segue o idioma do Windows
-$Idioma = ""                                     # "" = automatico; "pt" ou "en" forca
+# Message language: English by default; Portuguese when the mod's pt-BR option is on
+# (the mod writes idioma=pt|en into pzbackup_config.txt)
 function Idioma-Atual {
-    if ($Idioma) { return $Idioma }
+    if ($Language) { return $Language }
     $cfg = Join-Path $LuaDir "pzbackup_config.txt"
     if (Test-Path $cfg) {
         if (Select-String -Path $cfg -Pattern '^idioma=en' -Quiet) { return "en" }
         if (Select-String -Path $cfg -Pattern '^idioma=pt' -Quiet) { return "pt" }
     }
-    if ((Get-Culture).Name -like "pt*") { return "pt" } else { return "en" }
+    return "en"                                  # default: English
 }
-# Msg "texto em portugues" "text in English"
+# Msg "Portuguese text" "English text"
 function Msg([string]$Pt, [string]$En) { if ((Idioma-Atual) -eq "en") { $En } else { $Pt } }
 
-# Copia as ultimas linhas do log para Zomboid\Lua (o mod so le arquivos ali)
+# Copies the last log lines to Zomboid\Lua (the mod can only read files there)
 function Espelhar-Log {
     if (-not (Test-Path $LuaDir) -or -not (Test-Path $Log)) { return }
     $ultimas = Get-Content $Log -Tail 150 -Encoding UTF8 | ForEach-Object { Sem-Acento $_ }
@@ -72,7 +79,7 @@ function Espelhar-Log {
 }
 
 function Avisar([string]$Msg, [string]$Tipo = "ok") {
-    $rot = $script:Origem                        # rotulo no idioma das mensagens
+    $rot = $script:Origem                        # tag in the message language
     if ((Idioma-Atual) -eq "en") {
         if ($rot -eq "RESTAURO") { $rot = "RESTORE" } elseif ($rot -eq "LIMPEZA") { $rot = "CLEANUP" }
     }
@@ -81,7 +88,7 @@ function Avisar([string]$Msg, [string]$Tipo = "ok") {
     [IO.File]::AppendAllText($Log, $linha + "`r`n", $Utf8)
     Espelhar-Log
     Tocar $Tipo
-    # Repassa o resultado para o mod mostrar na tela do jogo
+    # Hands the result to the mod to show on screen
     if (Test-Path $LuaDir) {
         $id = [DateTime]::UtcNow.Ticks
         [IO.File]::WriteAllText((Join-Path $LuaDir "pzbackup_status.txt"),
@@ -89,15 +96,15 @@ function Avisar([string]$Msg, [string]$Tipo = "ok") {
     }
 }
 
-# Save em uso = pasta de mundo modificada mais recentemente (Saves\<modo>\<mundo>)
+# Current save = most recently modified world folder (Saves\<mode>\<world>)
 function Save-Atual {
     if (-not (Test-Path $Saves)) { return $null }
     Get-ChildItem $Saves -Directory | ForEach-Object { Get-ChildItem $_.FullName -Directory } |
         Sort-Object LastWriteTime -Descending | Select-Object -First 1
 }
 
-# No Windows a detecção de morte depende do mod PZ Backup
-# (aviso só vale se atualizado nas últimas 12 h)
+# On Windows, death detection relies on the PZ Backup mod
+# (the notice is only valid if updated in the last 12 h)
 function Estado-Personagem {
     $est = Join-Path $LuaDir "pzbackup_estado.txt"
     if ((Test-Path $est) -and ((Get-Item $est).LastWriteTime -gt (Get-Date).AddHours(-12))) {
@@ -129,21 +136,21 @@ function Fazer-Backup {
         Avisar (Msg "FALHA no backup de ${mundo}: $($_.Exception.Message)" "Backup FAILED for ${mundo}: $($_.Exception.Message)") "erro"; return
     }
 
-    # Mantém só os $Manter mais recentes deste mundo
+    # Keep only the $Keep newest for this world
     Get-ChildItem $Destino -Directory -Filter "${modo}__${mundo}__*" |
-        Sort-Object Name -Descending | Select-Object -Skip $Manter |
+        Sort-Object Name -Descending | Select-Object -Skip $Keep |
         Remove-Item -Recurse -Force
     Atualizar-Lista
 }
 
-# Backups do mais recente para o mais antigo (ordena pela data no nome)
+# Backups newest first (sorted by the date in the name)
 function Backups-Ordenados {
     Get-ChildItem $Destino -Directory | Where-Object { $_.Name -like "*__*__*" } |
         Sort-Object { ($_.Name -split "__")[-1] } -Descending
 }
 
-# Gera Zomboid\Lua\pzbackup_lista.txt para a janela de restauração do mod
-# Formato: nome|rótulo  (ex.: Survivor__Mundo__2026-10-14_14-35-07|14/10 14:35:07  -  Mundo)
+# Writes Zomboid\Lua\pzbackup_lista.txt for the mod's restore window
+# Format: name|label  (e.g. Survivor__World__2026-10-14_14-35-07|14/10 14:35:07  -  World)
 function Atualizar-Lista {
     if (-not (Test-Path $LuaDir)) { return }
     $linhas = foreach ($b in Backups-Ordenados) {
@@ -164,18 +171,18 @@ function Listar {
     foreach ($b in Backups-Ordenados) { "{0,2}  {1}" -f $i, $b.Name; $i++ }
 }
 
-# A opcao "remover saves de personagem morto" esta ligada?
+# Is the "remove dead-character saves" option on?
 function Apagar-Mortos-Ativo {
-    if ($ApagarMortos -eq "1") { return $true }
-    if ($ApagarMortos -eq "0") { return $false }
+    if ($RemoveDead -eq "1") { return $true }
+    if ($RemoveDead -eq "0") { return $false }
     $cfg = Join-Path $LuaDir "pzbackup_config.txt"
-    if (-not (Test-Path $cfg)) { return $false }          # sem o mod: nao remove nada
+    if (-not (Test-Path $cfg)) { return $false }          # no mod: remove nothing
     return [bool](Select-String -Path $cfg -Pattern '^apagar_mortos=1' -Quiet)
 }
 
-# Remove da pasta Saves o mundo onde o personagem morreu (so com o jogo FECHADO).
-# No Windows a informacao vem do mod (pzbackup_estado.txt: "morto" + modo/mundo).
-# O save nao e apagado na hora: vai para BackupsSaves\substituidos (os 5 mais recentes ficam).
+# Removes the world where the character died from the Saves folder (game CLOSED only).
+# On Windows the info comes from the mod (pzbackup_estado.txt: "morto" + mode/world).
+# The save isn't deleted right away: it goes to BackupsSaves\replaced (the 5 newest are kept).
 function Limpar-Mortos {
     if (-not (Apagar-Mortos-Ativo)) { return }
     $est = Join-Path $LuaDir "pzbackup_estado.txt"
@@ -189,21 +196,21 @@ function Limpar-Mortos {
 
     $candidatos = if ($modo) { @(Join-Path (Join-Path $Saves $modo) $mundo) }
                   else { @(Get-ChildItem $Saves -Directory | ForEach-Object { Join-Path $_.FullName $mundo }) }
-    $subst = Join-Path $Destino "substituidos"
+    $subst = $Subst
     New-Item -ItemType Directory -Force -Path $subst | Out-Null
     foreach ($w in $candidatos) {
         if (-not (Test-Path $w)) { continue }
         $m = Split-Path (Split-Path $w -Parent) -Leaf
         Move-Item $w (Join-Path $subst "${m}__${mundo}__$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss')")
-        Avisar (Msg "Save de personagem morto removido de Carregar: $mundo (guardado em substituidos)" "Dead character's save removed from Load: $mundo (kept in substituidos)")
+        Avisar (Msg "Save de personagem morto removido de Carregar: $mundo (guardado em replaced)" "Dead character's save removed from Load: $mundo (kept in replaced)")
     }
-    [IO.File]::WriteAllText($est, "limpo`n$alvo`n", $Utf8)    # aviso ja tratado
+    [IO.File]::WriteAllText($est, "limpo`n$alvo`n", $Utf8)    # notice handled
     Get-ChildItem $subst -Directory | Where-Object { $_.Name -like "*__*__*" } |
-        Sort-Object { ($_.Name -split "__")[-1] } -Descending | Select-Object -Skip $ManterSubst |
+        Sort-Object { ($_.Name -split "__")[-1] } -Descending | Select-Object -Skip $KeepReplaced |
         Remove-Item -Recurse -Force
 }
 
-# Núcleo da restauração: recebe o NOME do backup (sem perguntar nada)
+# Restore core: takes the backup NAME (asks nothing)
 function Restaurar-Nome([string]$Nome) {
     $escolhido = Join-Path $Destino $Nome
     if (-not $Nome -or -not (Test-Path $escolhido)) { Avisar (Msg "Backup nao encontrado: $Nome" "Backup not found: $Nome") "erro"; return $false }
@@ -212,21 +219,21 @@ function Restaurar-Nome([string]$Nome) {
     $mundo = ($partes[1..($partes.Count - 2)] -join "__")
     $destinoSave = Join-Path (Join-Path $Saves $modo) $mundo
 
-    # Guarda o save atual (ex.: personagem morto) em vez de apagar
-    $subst = Join-Path $Destino "substituidos"
+    # Keep the current save (e.g. dead character) instead of deleting it
+    $subst = $Subst
     New-Item -ItemType Directory -Force -Path $subst | Out-Null
     if (Test-Path $destinoSave) {
         Move-Item $destinoSave (Join-Path $subst "${modo}__${mundo}__$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss')")
     }
-    # Mantém só os $ManterSubst substituídos mais recentes (pela data no nome)
+    # Keep only the $KeepReplaced newest replaced saves (by the date in the name)
     Get-ChildItem $subst -Directory | Where-Object { $_.Name -like "*__*__*" } |
-        Sort-Object { ($_.Name -split "__")[-1] } -Descending | Select-Object -Skip $ManterSubst |
+        Sort-Object { ($_.Name -split "__")[-1] } -Descending | Select-Object -Skip $KeepReplaced |
         Remove-Item -Recurse -Force
     New-Item -ItemType Directory -Force -Path (Split-Path $destinoSave) | Out-Null
     try {
         Copy-Item $escolhido $destinoSave -Recurse -ErrorAction Stop
-        (Get-Item $destinoSave).LastWriteTime = Get-Date   # vira o save mais recente
-        # O estado "morto" era do save antigo: nao pode valer para o restaurado
+        (Get-Item $destinoSave).LastWriteTime = Get-Date   # becomes the newest save
+        # The "morto" state belonged to the old save, not the restored one
         if (Test-Path $LuaDir) {
             [IO.File]::WriteAllText((Join-Path $LuaDir "pzbackup_estado.txt"), "restaurado`n$modo/$mundo`n", $Utf8)
         }
@@ -238,32 +245,32 @@ function Restaurar-Nome([string]$Nome) {
     }
 }
 
-# Restauração pelo atalho/terminal: escolhe pelo número e pede confirmação
+# Restore from the shortcut/terminal: pick by number and confirm
 function Restaurar([int]$N) {
-    # O jogo só lê a lista de saves ao abrir: restaurar com ele aberto
-    # faz o save não aparecer em "Carregar" até reiniciar o jogo.
+    # The game reads the save list only on startup: restoring while it's open
+    # keeps the save out of "Load" until the game restarts.
     if (Jogo-Aberto) {
         Avisar (Msg "Feche o Project Zomboid antes de restaurar (o jogo so le a lista de saves ao abrir)" "Close Project Zomboid before restoring (the game only reads the save list on startup)") "erro"
         return
     }
     $lista = @(Backups-Ordenados)
-    if ($N -lt 1 -or $N -gt $lista.Count) { Write-Host "Backup $N nao encontrado."; return }
+    if ($N -lt 1 -or $N -gt $lista.Count) { Write-Host (Msg "Backup $N nao encontrado." "Backup $N not found."); return }
     $nome = $lista[$N - 1].Name
     $partes = $nome -split "__"
-    Write-Host "Restaurar: $nome"
-    Write-Host "Em:        $(Join-Path (Join-Path $Saves $partes[0]) ($partes[1..($partes.Count - 2)] -join '__'))"
-    $ok = Read-Host "Confirmar restauracao? (s/N)"
-    if ($ok -ne "s") { Write-Host "Cancelado."; return }
+    Write-Host ((Msg "Restaurar: " "Restore:   ") + $nome)
+    Write-Host ((Msg "Em:        " "Into:      ") + (Join-Path (Join-Path $Saves $partes[0]) ($partes[1..($partes.Count - 2)] -join "__")))
+    $ok = Read-Host (Msg "Confirmar restauracao? (s/N)" "Confirm restore? (y/N)")
+    if ($ok -notmatch '^[sSyY]$') { Write-Host (Msg "Cancelado." "Cancelled."); return }
     if (Restaurar-Nome $nome) {
-        Write-Host "Pode abrir o jogo."
-        Write-Host "`nATENCAO: o save restaurado volta com a lista de mods de quando o backup foi feito.`nAo carregar, confira em Carregar > (seu save) > Mods: reative o PZ Backup e os mods`nque voce usa, e desative os que nao quiser. Se um mod nao responder, desative e reative." -ForegroundColor Yellow
+        Write-Host (Msg "Pode abrir o jogo." "You can start the game now.")
+        Write-Host (Msg "`nATENCAO: o save restaurado volta com a lista de mods de quando o backup foi feito.`nAo carregar, confira em Carregar > (seu save) > Mods: reative o PZ Backup e os mods`nque voce usa, e desative os que nao quiser. Se um mod nao responder, desative e reative." "`nHEADS UP: the restored save comes back with the mod list it had when the backup was taken.`nWhen loading, check Load > (your save) > Mods: re-enable PZ Backup and the mods you use,`nand disable the ones you don't want. If a mod doesn't respond, disable and re-enable it.") -ForegroundColor Yellow
     }
 }
 
 function Jogo-Aberto { [bool](Get-Process -Name $Processos -ErrorAction SilentlyContinue) }
 
 function Esperar-Jogo {
-    Write-Host "Aguardando o Project Zomboid abrir..."
+    Write-Host (Msg "Aguardando o Project Zomboid abrir..." "Waiting for Project Zomboid to start...")
     $espera = 0
     while (-not (Jogo-Aberto)) {
         Start-Sleep 2; $espera += 2
@@ -287,30 +294,30 @@ function Modo-Jogo {
             Avisar (Msg "O jogo nao abriu em 3 minutos - backup automatico cancelado" "The game didn't start within 3 minutes - automatic backup cancelled") "erro"; return
         }
         Atualizar-Lista
-        Avisar (Msg "Jogo iniciado - backup automatico a cada $Intervalo min" "Game started - automatic backup every $Intervalo min")
+        Avisar (Msg "Jogo iniciado - backup automatico a cada $Interval min" "Game started - automatic backup every $Interval min")
 
-        $proximo = (Get-Date).AddMinutes($Intervalo)
+        $proximo = (Get-Date).AddMinutes($Interval)
         while (Jogo-Aberto) {
-            # Sinal de vida para o mod (hora Unix em segundos)
+            # Heartbeat for the mod (Unix time in seconds)
             [IO.File]::WriteAllText($ativo, "$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())`n", $Utf8)
-            if (Test-Path $pedido) {                 # tecla do mod
+            if (Test-Path $pedido) {                 # mod key
                 Remove-Item $pedido -Force
                 $script:Origem = "MOD"; Fazer-Backup; $script:Origem = "AUTO"
             }
             if ((Get-Date) -ge $proximo) {
                 Fazer-Backup
-                $proximo = (Get-Date).AddMinutes($Intervalo)
+                $proximo = (Get-Date).AddMinutes($Interval)
             }
             Start-Sleep 1
         }
         Remove-Item $ativo -Force -ErrorAction SilentlyContinue
-        Start-Sleep 3                                 # deixa o jogo terminar de gravar
+        Start-Sleep 3                                 # let the game finish writing
 
-        # Restauração pedida pela janela do mod: restaura e reabre o jogo
+        # Restore requested from the mod window: restore and relaunch the game
         if (Test-Path $restauro) {
             $nome = (Get-Content $restauro -TotalCount 1).Trim()
             Remove-Item $restauro -Force
-            # "AUTO modo/mundo" (morte com restauracao automatica): backup mais recente desse mundo
+            # "AUTO mode/world" (death with auto-restore): that world's newest backup
             if ($nome -like "AUTO *") {
                 $alvo = $nome.Substring(5) -split '/', 2
                 $ultimo = Get-ChildItem $Destino -Directory -Filter "$($alvo[0])__$($alvo[1])__*" |
@@ -325,7 +332,7 @@ function Modo-Jogo {
             }
         }
         $script:Origem = "FINAL"; Fazer-Backup
-        $script:Origem = "LIMPEZA"; Limpar-Mortos      # se a opcao estiver ligada
+        $script:Origem = "LIMPEZA"; Limpar-Mortos      # if the option is on
         return
     }
 }
@@ -333,19 +340,19 @@ function Modo-Jogo {
 switch ($Acao) {
     "save"    { $script:Origem = "MANUAL"; Fazer-Backup }
     "loop"    { $script:Origem = "AUTO"
-                Avisar (Msg "Backup automatico a cada $Intervalo min (feche a janela para parar)" "Automatic backup every $Intervalo min (close this window to stop)")
-                while ($true) { Start-Sleep ($Intervalo * 60); Fazer-Backup } }
+                Avisar (Msg "Backup automatico a cada $Interval min (feche a janela para parar)" "Automatic backup every $Interval min (close this window to stop)")
+                while ($true) { Start-Sleep ($Interval * 60); Fazer-Backup } }
     "list"    { Listar }
     "log"     { if (Test-Path $Log) { Get-Content $Log -Tail 30 -Encoding UTF8 } else { Msg "Log vazio." "Log is empty." } }
-    "limpar"  { if (Jogo-Aberto) { Avisar (Msg "Feche o Project Zomboid antes de limpar" "Close Project Zomboid before cleaning up") "erro" }
-                else { $script:Origem = "LIMPEZA"; $ApagarMortos = "1"; Limpar-Mortos } }
+    { $_ -in "clean", "limpar" } { if (Jogo-Aberto) { Avisar (Msg "Feche o Project Zomboid antes de limpar" "Close Project Zomboid before cleaning up") "erro" }
+                else { $script:Origem = "LIMPEZA"; $RemoveDead = "1"; Limpar-Mortos } }
     "restore" { $script:Origem = "RESTAURO"; Restaurar $Numero }
-    "jogo"    { Modo-Jogo }
-    "escolher" {                                  # usado pelo atalho "PZ Backup - Restaurar"
+    { $_ -in "game", "jogo" } { Modo-Jogo }
+    { $_ -in "choose", "escolher" } {             # used by the "PZ Backup - Restore" shortcut
                 $script:Origem = "RESTAURO"
                 Listar
-                $n = Read-Host "`nNumero do backup para restaurar (Enter = cancelar)"
-                if ($n -match '^\d+$') { Restaurar ([int]$n) } else { Write-Host "Cancelado." }
-                Read-Host "`nPressione Enter para fechar" | Out-Null }
-    default   { Get-Content $PSCommandPath -TotalCount 15 | Select-Object -Skip 1 }
+                $n = Read-Host ("`n" + (Msg "Numero do backup para restaurar (Enter = cancelar)" "Backup number to restore (Enter = cancel)"))
+                if ($n -match '^\d+$') { Restaurar ([int]$n) } else { Write-Host (Msg "Cancelado." "Cancelled.") }
+                Read-Host ("`n" + (Msg "Pressione Enter para fechar" "Press Enter to close")) | Out-Null }
+    default   { Get-Content $PSCommandPath -TotalCount 16 | Select-Object -Skip 1 }
 }
