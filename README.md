@@ -5,7 +5,7 @@
 **Downloads:** <https://github.com/ahlrodrigues/PZBackup/releases> ·
 **Steam Workshop:** <https://steamcommunity.com/sharedfiles/filedetails/?id=3821180981> ·
 *Português:* [LEIAME.md](LEIAME.md)
-Version 1.2.0 · Mod ID `PZBackupAHLR` · Workshop ID `3821180981` · [MIT](LICENSE) license · Build 42
+Version 1.3.0 · Mod ID `PZBackupAHLR` · Workshop ID `3821180981` · [MIT](LICENSE) license · Build 42
 
 You spent three weeks building the perfect base. Double fence, farm, generator,
 enough canned beans to survive the apocalypse twice. Then you opened one door
@@ -32,7 +32,7 @@ on Discord.
 | 🛡️ **No zombie-fying your backups** | No backups are taken while your character is dead — the good ones stay safe |
 | 🧹 **Auto cleanup** | When the game closes, the dead character's save leaves the *Load* list (it's kept, relax) |
 | 📜 **View log** | In-game button shows everything PZ Backup did, color-coded |
-| 🌎 **English & PT-BR** | English by default; Brazilian Portuguese is one checkbox away in the options |
+| 🌎 **English & PT-BR** | Follows your game's language automatically (Portuguese or English); you can also pick one in the options |
 | 🗂️ **History** | 10 backups per world + 5 replaced saves just in case |
 | 🔊 **Beeps** | Two rising beeps = all good. Two falling = something's off |
 
@@ -236,16 +236,24 @@ From a terminal: `pz-backup.sh log` (or `pz-backup.ps1 log`). The full log lives
 
 ## Options and settings
 
-**In game** (*Options → Mods → PZ Backup*): **Portugues (pt-BR)** language checkbox,
+**In game** (*Options → Mods → PZ Backup*): **Language** list,
 F8/F9 keys, restore on death, remove dead saves, *Restore a backup...* and
 *View log...* buttons.
 
 ### 🌎 Language
 
-PZ Backup speaks **English** by default. Want Brazilian Portuguese? Tick
-**Options → Mods → PZ Backup → Portugues (pt-BR)** and apply. Windows, messages and
-the script's log switch right away; the option names themselves switch after a
-game restart. Untick it to go back to English.
+By default PZ Backup **follows the game's language**: Portuguese if the game is in
+Portuguese, English for any other language. Want to force one? Go to
+**Options → Mods → PZ Backup → Language** and pick:
+
+| Choice | What you get |
+|---|---|
+| **Automatic (game language)** | Default. Portuguese with the game in Portuguese, English otherwise |
+| **English** | Always English |
+| **Portugues (pt-BR)** | Always Brazilian Portuguese |
+
+Windows, messages and the script's log switch right away after *Apply*; the option
+names themselves switch after a game restart.
 
 **At the top of the script** (`pz-backup.sh` or `pz-backup.ps1`):
 
@@ -256,7 +264,7 @@ game restart. Untick it to go back to English.
 | `KEEP_REPLACED` / `$KeepReplaced` | 5 | Replaced saves kept |
 | `SOUND` / `$Sound` | on | Beeps |
 | `REMOVE_DEAD` / `$RemoveDead` | empty | Empty = follow the mod; `1` always; `0` never |
-| `LANGUAGE` / `$Language` | empty | Empty = follow the mod (English unless pt-BR is on); `pt` or `en` to force |
+| `LANGUAGE` / `$Language` | empty | Empty = follow the mod's *Language* option; `pt` or `en` to force |
 
 ## Where things live
 

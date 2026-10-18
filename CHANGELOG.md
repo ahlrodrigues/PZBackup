@@ -3,6 +3,21 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org/).
 
+## [1.3.0] - 2026-10-18
+
+### Changed
+- **Language now follows the game by default.** The *Portugues (pt-BR)* checkbox became a
+  **Language** list in *Options → Mods → PZ Backup*: **Automatic (game language)** (default),
+  **English** or **Portugues (pt-BR)**. With *Automatic*, a game in Portuguese (`PT`/`PTBR`)
+  shows the mod in Portuguese; any other language shows it in English.
+- The script still follows the mod (`idioma=pt|en` in `pzbackup_config.txt`, now the resolved
+  language); `LANGUAGE` / `$Language` still forces one.
+- `console.txt` logs both the mod language and the detected game language.
+
+### Upgrading
+- Your old checkbox choice isn't carried over: the list starts on *Automatic*. If you play the
+  game in English but want the mod in Portuguese (or the opposite), pick it once in the list.
+
 ## [1.2.0] - 2026-10-18
 
 ### Changed
@@ -91,6 +106,7 @@ First public release.
 - Installers for Linux (native and Flatpak Steam) and Windows 10/11.
 - In-game warning, with the repository address, when the script isn't installed.
 
+[1.3.0]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.3.0
 [1.2.0]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.2.0
 [1.1.1]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.1.1
 [1.1.0]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.1.0

@@ -5,7 +5,7 @@
 **Downloads:** <https://github.com/ahlrodrigues/PZBackup/releases> ·
 **Steam Workshop:** <https://steamcommunity.com/sharedfiles/filedetails/?id=3821180981> ·
 *English:* [README.md](README.md)
-Versão 1.2.0 · Mod ID `PZBackupAHLR` · Workshop ID `3821180981` · Licença [MIT](LICENSE) · Build 42
+Versão 1.3.0 · Mod ID `PZBackupAHLR` · Workshop ID `3821180981` · Licença [MIT](LICENSE) · Build 42
 
 Você passou três semanas montando a base perfeita. Cerca dupla, horta, gerador,
 estoque de feijão enlatado pra sobreviver ao fim do mundo duas vezes. Aí abriu uma
@@ -238,18 +238,24 @@ No terminal: `pz-backup.sh log` (ou `pz-backup.ps1 log`). O log completo fica em
 
 ## Opções e ajustes
 
-**No jogo** (*Opções → Mods → PZ Backup*): caixinha de idioma **Portugues (pt-BR)**,
+**No jogo** (*Opções → Mods → PZ Backup*): lista de **Idioma**,
 teclas F8/F9, restaurar ao morrer, remover saves de morto, botões *Restaurar backup...*
 e *Ver log...*.
 
 ### 🌎 Idioma
 
-O PZ Backup fala **inglês** por padrão (é o idioma principal do mod). Quer em
-português? Marque **Options → Mods → PZ Backup → Portugues (pt-BR)** e aplique. Janelas,
-mensagens e o log do script mudam na hora; os nomes das opções mudam depois de
-reiniciar o jogo. Desmarque pra voltar ao inglês.
+Por padrão o PZ Backup **segue o idioma do jogo**: jogo em português, mod em
+português; qualquer outro idioma, mod em inglês. Quer forçar um? Vá em
+**Opções → Mods → PZ Backup → Idioma** e escolha:
 
-> Repara que as opções aparecem em inglês até você marcar a caixinha — é de propósito.
+| Opção | O que acontece |
+|---|---|
+| **Automatico (idioma do jogo)** | Padrão. Português com o jogo em português; inglês nos demais |
+| **English** | Sempre em inglês |
+| **Portugues (pt-BR)** | Sempre em português |
+
+Janelas, mensagens e o log do script mudam na hora, depois de *Aplicar*; os nomes
+das opções mudam depois de reiniciar o jogo.
 
 **No começo do script** (`pz-backup.sh` ou `pz-backup.ps1`):
 
@@ -260,7 +266,7 @@ reiniciar o jogo. Desmarque pra voltar ao inglês.
 | `KEEP_REPLACED` / `$KeepReplaced` | 5 | Saves substituídos guardados |
 | `SOUND` / `$Sound` | ligado | Bipes |
 | `REMOVE_DEAD` / `$RemoveDead` | vazio | Vazio = segue o mod; `1` sempre; `0` nunca |
-| `LANGUAGE` / `$Language` | vazio | Vazio = segue o mod (inglês, a menos que o pt-BR esteja marcado); `pt` ou `en` força |
+| `LANGUAGE` / `$Language` | vazio | Vazio = segue a opção *Idioma* do mod; `pt` ou `en` força |
 
 ## Onde ficam as coisas
 

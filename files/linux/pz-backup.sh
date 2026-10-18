@@ -1,6 +1,6 @@
 #!/bin/bash
 # pz-backup.sh — automatic and manual save backups for Project Zomboid (Linux)
-# Version 1.2.0 — https://github.com/ahlrodrigues/PZBackup — MIT License
+# Version 1.3.0 — https://github.com/ahlrodrigues/PZBackup — MIT License
 #
 # Requires: bash. Recommended: python3 (beeps and players.db death check)
 #           and paplay/pw-play/aplay (sound). Without python3 backups still work.
@@ -28,7 +28,7 @@ REMOVE_DEAD=""                            # dead-character saves when the game c
 SOUND=1                                   # 1 = beep on backup/restore, 0 = silent
 SOUND_OK=""                               # optional: your own success .wav
 SOUND_ERROR=""                            # optional: your own error .wav
-LANGUAGE=""                               # messages: empty = follow the mod/system; "pt" or "en"
+LANGUAGE=""                               # messages: empty = follow the mod's Language option; "pt" or "en"
 # ------------------------------------------
 
 # Game folder: detects native Steam or Flatpak Steam automatically.
@@ -97,8 +97,8 @@ sem_acento() {
   LC_ALL=C sed 's/á/a/g; s/à/a/g; s/â/a/g; s/ã/a/g; s/ä/a/g; s/é/e/g; s/è/e/g; s/ê/e/g; s/ë/e/g; s/í/i/g; s/ì/i/g; s/î/i/g; s/ï/i/g; s/ó/o/g; s/ò/o/g; s/ô/o/g; s/õ/o/g; s/ö/o/g; s/ú/u/g; s/ù/u/g; s/û/u/g; s/ü/u/g; s/ç/c/g; s/ñ/n/g; s/Á/A/g; s/À/A/g; s/Â/A/g; s/Ã/A/g; s/Ä/A/g; s/É/E/g; s/È/E/g; s/Ê/E/g; s/Ë/E/g; s/Í/I/g; s/Ì/I/g; s/Î/I/g; s/Ï/I/g; s/Ó/O/g; s/Ò/O/g; s/Ô/O/g; s/Õ/O/g; s/Ö/O/g; s/Ú/U/g; s/Ù/U/g; s/Û/U/g; s/Ü/U/g; s/Ç/C/g; s/Ñ/N/g; s/—/-/g'
 }
 
-# Message language: English by default; Portuguese when the mod's pt-BR option is on
-# (the mod writes idioma=pt|en into pzbackup_config.txt). LANGUAGE forces one.
+# Message language: follows the mod's Language option (Automatic = game language);
+# the mod writes the result, idioma=pt|en, into pzbackup_config.txt. LANGUAGE forces one.
 idioma() {
   if [ -n "$LANGUAGE" ]; then echo "$LANGUAGE"; return; fi
   local cfg="$LUA_DIR/pzbackup_config.txt"

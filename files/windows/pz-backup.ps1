@@ -1,5 +1,5 @@
 ﻿# pz-backup.ps1 — automatic and manual save backups for Project Zomboid (Windows)
-# Version 1.2.0 — https://github.com/ahlrodrigues/PZBackup — MIT License
+# Version 1.3.0 — https://github.com/ahlrodrigues/PZBackup — MIT License
 #
 # Usage (PowerShell):
 #   pz-backup.ps1 save        -> back up now
@@ -24,7 +24,7 @@ $RemoveDead   = ""                               # dead-character saves when the
                                                  #   "" = follow the mod option (default: on)
                                                  #   "1" = always remove, "0" = never remove
 $Sound        = $true                            # $false = silent
-$Language     = ""                               # messages: "" = follow the mod (default English); "pt" or "en"
+$Language     = ""                               # messages: "" = follow the mod's Language option; "pt" or "en"
 # ------------------------------------------
 $SteamAppId = 108600                             # Project Zomboid on Steam
 $Processos = @("ProjectZomboid64", "ProjectZomboid32", "ProjectZomboid")
@@ -57,8 +57,8 @@ function Sem-Acento([string]$t) {
         Where-Object { [Globalization.CharUnicodeInfo]::GetUnicodeCategory($_) -ne 'NonSpacingMark' }) -join ''
 }
 
-# Message language: English by default; Portuguese when the mod's pt-BR option is on
-# (the mod writes idioma=pt|en into pzbackup_config.txt)
+# Message language: follows the mod's Language option (Automatic = game language);
+# the mod writes the result, idioma=pt|en, into pzbackup_config.txt
 function Idioma-Atual {
     if ($Language) { return $Language }
     $cfg = Join-Path $LuaDir "pzbackup_config.txt"

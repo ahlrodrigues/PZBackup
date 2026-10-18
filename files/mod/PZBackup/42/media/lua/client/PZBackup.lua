@@ -108,9 +108,14 @@ local function criarOpcoes()
         if not ok2 then print("[PZBackup] option '" .. nome .. "' failed: " .. tostring(r)) end
         return ok2 and r or nil
     end
-    -- Language: English by default; ticked = Brazilian Portuguese
-    PZBackup.opcaoPtBr = tentar("ptbr", function()
-        return opcoes:addTickBox("ptbr", PZBackup.T("opt_ptbr"), false, PZBackup.T("opt_ptbr_dica"))
+    -- Language: Automatic (game language, default) / English / Portugues (pt-BR)
+    -- Item order must match PZBackup.IDIOMA_AUTO / _EN / _PT (shared/PZBackup_Strings.lua)
+    PZBackup.opcaoIdioma = tentar("idioma", function()
+        local combo = opcoes:addComboBox("idioma", PZBackup.T("opt_idioma"), PZBackup.T("opt_idioma_dica"))
+        combo:addItem(PZBackup.T("opt_idioma_auto"), true)
+        combo:addItem(PZBackup.T("opt_idioma_en"), false)
+        combo:addItem(PZBackup.T("opt_idioma_pt"), false)
+        return combo
     end)
     opcaoBackup = tentar("teclaBackup", function()
         return opcoes:addKeyBind("teclaBackup", PZBackup.T("opt_tecla_backup"), TECLA_BACKUP_PADRAO,
@@ -288,7 +293,9 @@ end
 ------------------------------------------------------------------------
 Events.OnGameStart.Add(marcarVivo)
 Events.OnGameStart.Add(PZBackup.salvarConfig)
-Events.OnGameStart.Add(function() print("[PZBackup] language: " .. PZBackup.idioma()) end)
+Events.OnGameStart.Add(function()
+    print("[PZBackup] language: " .. PZBackup.idioma() .. " (game: " .. PZBackup.idiomaDoJogo() .. ")")
+end)
 -- Players who only installed the mod (e.g. from the Workshop) learn the script is missing
 Events.OnGameStart.Add(function()
     if not PZBackup.scriptAtivo() then

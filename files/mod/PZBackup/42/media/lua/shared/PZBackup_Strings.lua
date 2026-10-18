@@ -1,8 +1,9 @@
 --[[
   PZ Backup — mod strings in English (en) and Portuguese (pt)
 
-  English is the main language; Portuguese (pt-BR) is optional, turned on in
-  Options > Mods > PZ Backup > "Portugues (pt-BR)". The strings have no accents
+  Language is chosen in Options > Mods > PZ Backup > Language:
+  Automatic (follows the game's language, default), English or Portugues (pt-BR).
+  Any game language other than Portuguese falls back to English. The strings have no accents
   because the game font may not have those characters.
 
   Usage: PZBackup.T("key", arg1, arg2...)  -> string.format with the arguments
@@ -12,10 +13,16 @@ PZBackup = PZBackup or {}
 
 local TEXTOS = {
     -- Options (Options > Mods > PZ Backup)
-    opt_ptbr                = { pt = "Portugues (pt-BR)",
+    opt_idioma              = { pt = "Idioma / Language",
+                                en = "Language / Idioma" },
+    opt_idioma_dica         = { pt = "Automatico segue o idioma do jogo (portugues ou, nos demais, ingles). Os nomes das opcoes mudam ao reiniciar o jogo.",
+                                en = "Automatic follows the game's language (Portuguese, or English for any other). Option names switch after a game restart." },
+    opt_idioma_auto         = { pt = "Automatico (idioma do jogo)",
+                                en = "Automatic (game language)" },
+    opt_idioma_en           = { pt = "English",
+                                en = "English" },
+    opt_idioma_pt           = { pt = "Portugues (pt-BR)",
                                 en = "Portugues (pt-BR)" },
-    opt_ptbr_dica           = { pt = "Show PZ Backup in Brazilian Portuguese / Mostra o PZ Backup em portugues do Brasil",
-                                en = "Show PZ Backup in Brazilian Portuguese / Mostra o PZ Backup em portugues do Brasil" },
     opt_tecla_backup        = { pt = "Fazer backup agora",
                                 en = "Back up now" },
     opt_tecla_backup_dica   = { pt = "Pede ao script uma copia do save, na hora",
@@ -114,15 +121,32 @@ local TEXTOS = {
                                 en = "Last %d lines, newest first. Full log in BackupsSaves/pz-backup.log" },
 }
 
--- English is the main language. Portuguese (pt-BR) is an option:
--- Options > Mods > PZ Backup > "Portugues (pt-BR)".
--- (PZBackup.opcaoPtBr is created in client/PZBackup.lua)
-function PZBackup.idioma()
-    if PZBackup.opcaoPtBr then
-        local ok, v = pcall(function() return PZBackup.opcaoPtBr:getValue() end)
-        if ok and v == true then return "pt" end
+-- Language: Options > Mods > PZ Backup > Language
+--   1 = Automatic (game language), 2 = English, 3 = Portugues (pt-BR)
+-- (PZBackup.opcaoIdioma is created in client/PZBackup.lua)
+PZBackup.IDIOMA_AUTO, PZBackup.IDIOMA_EN, PZBackup.IDIOMA_PT = 1, 2, 3
+
+-- Game language: exact code PT or PTBR = Portuguese; anything else = English
+function PZBackup.idiomaDoJogo()
+    local codigo = nil
+    pcall(function() codigo = Translator.getLanguage():name() end)
+    if not codigo then
+        pcall(function() codigo = getCore():getOptionLanguageName() end)
     end
+    codigo = string.upper(tostring(codigo or ""))
+    if codigo == "PT" or codigo == "PTBR" then return "pt" end
     return "en"
+end
+
+function PZBackup.idioma()
+    if PZBackup.opcaoIdioma then
+        local ok, v = pcall(function() return PZBackup.opcaoIdioma:getValue() end)
+        if ok then
+            if v == PZBackup.IDIOMA_EN then return "en" end
+            if v == PZBackup.IDIOMA_PT then return "pt" end
+        end
+    end
+    return PZBackup.idiomaDoJogo()       -- Automatic (default)
 end
 
 function PZBackup.T(chave, ...)
