@@ -16,10 +16,13 @@
 #   pz-backup.sh note N "text" -> name backup N (empty text removes the note)
 #   pz-backup.sh clean       -> remove dead-character saves now (game CLOSED)
 #   pz-backup.sh log [N]     -> show the last N log lines (default 30)
+#   pz-backup.sh version     -> show the script version
 #   pz-backup.sh game %command% -> for Steam's Launch Options: runs automatic backups
 #                      while the game is open and stops when it closes
 #                      (also serves the PZ Backup mod's keys and restore window)
 #   Older Portuguese command names still work: jogo = game, limpar = clean.
+
+VERSION="1.4.0"                           # updated by tools/bump-version.sh
 
 # ---------------- Settings ----------------
 INTERVAL=5                                # minutes between automatic backups
@@ -812,6 +815,7 @@ case "$1" in
   loop)    ORIGEM="AUTO"; avisar "$(msg "Backup automático a cada $INTERVAL min (Ctrl+C para parar)" "Automatic backup every $INTERVAL min (Ctrl+C to stop)")"
            while true; do sleep $((INTERVAL * 60)); PZB_SEM_JOGO=1 backup_automatico; done ;;
   list)    listar ;;
+  version|--version|-v) echo "PZ Backup $VERSION" ;;
   log)     tail -n "${2:-30}" "$DESTINO/pz-backup.log" 2>/dev/null || echo "$(msg "Log vazio." "Log is empty.")" ;;
   clean|limpar)
            if jogo_aberto; then avisar "$(msg "Feche o Project Zomboid antes de limpar" "Close Project Zomboid before cleaning up")" erro; exit 1; fi
@@ -838,7 +842,7 @@ case "$1" in
              # Heartbeat for the mod + serves the backup key (every 1 s)
              ( trap 'kill $SP 2>/dev/null; exit 0' TERM
                while true; do
-                 date +%s > "$ATIVO"
+                 printf '%s\n%s\n' "$(date +%s)" "$VERSION" > "$ATIVO"
                  if [ -f "$PEDIDO" ]; then
                    NOTA=$(sed -n 's/^nota=//p' "$PEDIDO" | head -n1 | tr -d '\r')
                    rm -f "$PEDIDO"
@@ -849,7 +853,7 @@ case "$1" in
                  sleep 1 & SP=$!; wait $SP
                done ) &
              MOD_PID=$!
-             avisar "$(msg "Jogo iniciado — backup automático a cada $INTERVAL min" "Game started — automatic backup every $INTERVAL min")"
+             avisar "$(msg "Jogo iniciado — PZ Backup $VERSION, backup automático a cada $INTERVAL min" "Game started — PZ Backup $VERSION, automatic backup every $INTERVAL min")"
              "$@"; RC=$?                   # runs the game and waits for it to close
              # Stops the loops (each kills its own "sleep" on TERM)
              kill "$LOOP_PID" "$MOD_PID" 2>/dev/null
@@ -897,5 +901,5 @@ case "$1" in
            ALVO=$(backups_ordenados | sed -n "${2:-0}p")
            [ -z "$ALVO" ] && { msg "Uso: $0 $1 N (número da lista: $0 list)" "Usage: $0 $1 N (number from: $0 list)"; echo; exit 1; }
            ORIGEM="MANUAL"; fixar "$(basename "$ALVO")" "$1" ;;
-  *)       sed -n '2,22p' "$0" ;;
+  *)       sed -n '2,23p' "$0" ;;
 esac

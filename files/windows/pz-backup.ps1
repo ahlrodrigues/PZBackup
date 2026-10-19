@@ -15,9 +15,12 @@
 #   pz-backup.ps1 choose      -> shows the list and asks which backup to restore
 #   pz-backup.ps1 clean       -> remove dead-character saves now (game CLOSED)
 #   pz-backup.ps1 log         -> show the last log lines
+#   pz-backup.ps1 version     -> show the script version
 #   Older Portuguese action names still work: jogo = game, escolher = choose, limpar = clean.
 
 param([string]$Acao = "", [int]$Numero = 1, [string]$Texto = "")
+
+$Versao = "1.4.0"                                # updated by tools/bump-version.sh
 
 # ---------------- Settings ----------------
 $Interval     = 5                                # minutes between automatic backups
@@ -808,12 +811,12 @@ function Modo-Jogo {
             Avisar (Msg "O jogo nao abriu em 3 minutos - backup automatico cancelado" "The game didn't start within 3 minutes - automatic backup cancelled") "erro"; return
         }
         Atualizar-Lista
-        Avisar (Msg "Jogo iniciado - backup automatico a cada $Interval min" "Game started - automatic backup every $Interval min")
+        Avisar (Msg "Jogo iniciado - PZ Backup $Versao, backup automatico a cada $Interval min" "Game started - PZ Backup $Versao, automatic backup every $Interval min")
 
         $proximo = (Get-Date).AddMinutes($Interval)
         while (Jogo-Aberto) {
             # Heartbeat for the mod (Unix time in seconds)
-            [IO.File]::WriteAllText($ativo, "$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())`n", $Utf8)
+            [IO.File]::WriteAllText($ativo, "$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())`n$Versao`n", $Utf8)
             if (Test-Path $pedido) {                 # mod key (optional "nota=" line)
                 $nota = Get-Content $pedido -Encoding UTF8 | Where-Object { $_ -like "nota=*" } | Select-Object -First 1
                 $nota = if ($nota) { $nota.Substring(5).Trim() } else { "" }
@@ -880,6 +883,7 @@ switch ($Acao) {
                     Write-Host (Msg "Uso: pz-backup.ps1 note N `"texto`" (numero da lista: pz-backup.ps1 list)" "Usage: pz-backup.ps1 note N `"text`" (number from: pz-backup.ps1 list)")
                 } else { $script:Origem = "MANUAL"; Anotar $lista[$Numero - 1].Name $Texto } }
     "list"    { Listar }
+    { $_ -in "version", "--version", "-v" } { "PZ Backup $Versao" }
     "log"     { if (Test-Path $Log) { Get-Content $Log -Tail 30 -Encoding UTF8 } else { Msg "Log vazio." "Log is empty." } }
     { $_ -in "clean", "limpar" } { if (Jogo-Aberto) { Avisar (Msg "Feche o Project Zomboid antes de limpar" "Close Project Zomboid before cleaning up") "erro" }
                 else { $script:Origem = "LIMPEZA"; $RemoveDead = "1"; Limpar-Mortos } }
@@ -896,5 +900,5 @@ switch ($Acao) {
                 $n = Read-Host ("`n" + (Msg "Numero do backup para restaurar (Enter = cancelar)" "Backup number to restore (Enter = cancel)"))
                 if ($n -match '^\d+$') { Restaurar ([int]$n) } else { Write-Host (Msg "Cancelado." "Cancelled.") }
                 Read-Host ("`n" + (Msg "Pressione Enter para fechar" "Press Enter to close")) | Out-Null }
-    default   { Get-Content $PSCommandPath -TotalCount 19 | Select-Object -Skip 1 }
+    default   { Get-Content $PSCommandPath -TotalCount 20 | Select-Object -Skip 1 }
 }

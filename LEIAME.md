@@ -483,11 +483,59 @@ aparecem as novidades até os dois estarem atualizados).
 
 ## Publicar uma versão nova (mantenedor)
 
-1. Versão no `CHANGELOG.md`, nos cabeçalhos dos scripts e no `mod.info`.
-2. `git commit`, `git tag vX.Y.Z`, `git push --follow-tags` (o Forgejo espelha no GitHub).
-3. No GitHub, crie a Release da tag e anexe o `PZBackup-vX.Y.Z.zip`.
-4. Workshop: `bash workshop/prepare-workshop.sh` e, no jogo,
-   *Workshop → Criar e atualizar conteúdo → PZBackup*.
+### Do jeito rápido: baixou o patch e o zip? Um comando.
+
+```bash
+bash ~/Projetos/PZBackup/tools/publish.sh
+```
+
+Ele pega o `PZBackup-vX.Y.Z.patch` e o `PZBackup-vX.Y.Z.zip` mais novos de `~/Downloads` e:
+
+1. confere o repositório (sem mudanças pendentes, atualizado com o Forgejo);
+2. aplica o patch — se o último commit for uma entrega anterior da mesma versão, troca
+   por ela (se ainda não foi enviada) ou cria um commit de atualização por cima (se já foi);
+3. confere a versão em todos os arquivos;
+4. pergunta e faz o `push` do commit e da tag `vX.Y.Z` pro Forgejo;
+5. espera a tag chegar no GitHub pelo espelho e cria a Release com o zip e as notas do
+   CHANGELOG (precisa do `gh` logado; sem ele, avisa pra fazer à mão);
+6. instala o `pz-backup.sh` novo no `~/Zomboid` (o mod não: quem entrega é a Workshop);
+7. monta a pasta da Workshop.
+
+Depois é só, no jogo: *Workshop → Criar e atualizar itens → PZBackup → Atualizar*.
+Pode rodar de novo à vontade: ele pula o que já foi feito. Opções: `--private`,
+`--no-release`, `--yes` (sem perguntar), `--patch`, `--zip`, `--repo` (veja `--help`).
+
+### Passo a passo (pra entender ou fazer à mão)
+
+A versão fica em 9 lugares (mod.info, o mod, os dois scripts, README, LEIAME e
+CHANGELOG). **Não edite à mão:** um comando troca todos de uma vez.
+
+1. Anote as novidades no `CHANGELOG.md`, numa seção `## [Unreleased]` no topo.
+2. Troque a versão:
+   ```bash
+   bash tools/bump-version.sh 1.4.1
+   ```
+   A seção `[Unreleased]` vira `[1.4.1] - <data de hoje>` e o link da release é criado.
+   Se não houver `[Unreleased]`, ele cria uma seção vazia pra você preencher.
+3. Confira a qualquer momento: `bash tools/bump-version.sh --check`.
+4. `git commit`, `git tag v1.4.1`, `git push --follow-tags` (o Forgejo espelha no GitHub).
+5. No GitHub, crie a Release da tag e anexe o `PZBackup-v1.4.1.zip`.
+6. Workshop: `bash workshop/prepare-workshop.sh --public` e, no jogo,
+   *Workshop → Criar e atualizar conteúdo → PZBackup*. O script **se recusa** a montar a
+   pasta se algum arquivo estiver com versão diferente, e coloca a versão no rodapé da
+   descrição da Workshop.
+
+Onde o jogador vê a versão:
+
+| Lugar | O que aparece |
+|---|---|
+| *Opções → Mods* | Nome da página "PZ Backup 1.4.1" e título "PZ Backup - versão 1.4.1" |
+| Janela do F9 (canto superior direito) | `mod 1.4.1 \| script 1.4.1` — **vermelho** se forem diferentes |
+| Ao entrar no jogo | Aviso "mod 1.4.1, script 1.4.0. Atualize o script" se forem diferentes |
+| Log do script | "Jogo iniciado — PZ Backup 1.4.1, ..." |
+| Terminal | `pz-backup.sh version` / `pz-backup.ps1 version` |
+| `console.txt` | `[PZBackup] 1.4.1 loaded` e `[PZBackup] mod 1.4.1, script 1.4.1` |
+| Workshop | Rodapé da descrição: "Version 1.4.1" |
 
 ---
 

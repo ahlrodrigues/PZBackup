@@ -20,6 +20,10 @@ for a in "$@"; do
   esac
 done
 
+# Every file must carry the same version (mod.info, mod, scripts, docs, CHANGELOG)
+bash "$REPO/tools/bump-version.sh" --check || { echo "Upload folder NOT built."; exit 1; }
+VERSAO=$(sed -n 's/^modversion=//p' "$REPO/files/mod/PZBackup/42/mod.info")
+
 for b in "$HOME/Zomboid" "$HOME/.var/app/com.valvesoftware.Steam/Zomboid"; do
   [ -d "$b" ] && { BASE="$b"; break; }
 done
@@ -63,7 +67,7 @@ no_accents() {
              echo "description=Save backups and undo death in Project Zomboid Build 42. Needs the free PZ Backup script: https://github.com/ahlrodrigues/PZBackup"
              grep '^tags=\|^visibility=' "$REPO/workshop/workshop.txt" ;;
   esac
-} > "$DEST/workshop.txt"
+} | sed "s/__VERSAO__/$VERSAO/g" > "$DEST/workshop.txt"
 [ "$PUBLIC" = 1 ] && sed -i 's/^visibility=.*/visibility=public/' "$DEST/workshop.txt"
 
 DESC_BYTES=$(grep '^description=' "$DEST/workshop.txt" | sed 's/^description=//' | wc -c)
@@ -72,6 +76,7 @@ ODD=$(LC_ALL=C grep -c -P '[^\x00-\x7F]' "$DEST/workshop.txt" || true)
 echo "Folder ready: $DEST"
 find "$DEST" -type f | sed "s#^$DEST/#  #" | sort
 echo
+echo "Version: $VERSAO"
 echo "Description mode: $MODE  |  $DESC_BYTES bytes (Steam limit 8000)  |  lines with non-ASCII: $ODD"
 echo "$(grep '^title=' "$DEST/workshop.txt")"
 echo "$(grep '^visibility=' "$DEST/workshop.txt")"

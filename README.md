@@ -480,6 +480,22 @@ so renaming them would break mixed versions.
 file, so a v1.4 script still works with a v1.3 mod (and vice versa — you just don't get
 the new stuff until both are updated).
 
+## Which version do I have?
+
+| Where | What you see |
+|---|---|
+| *Options → Mods* | Page "PZ Backup 1.4.0" with the title "PZ Backup - version 1.4.0" |
+| F9 window (top right) | `mod 1.4.0 \| script 1.4.0` — **red** when they differ |
+| When a game starts | "mod 1.4.0, script 1.3.0. Update the script" if they differ |
+| Terminal | `pz-backup.sh version` / `pz-backup.ps1 version` |
+
+The Workshop updates the mod by itself, but the script only changes when you reinstall
+it — so if the F9 window turns red, grab the new script from
+[Releases](https://github.com/ahlrodrigues/PZBackup/releases).
+
+Maintainers: `bash tools/bump-version.sh X.Y.Z` sets the version in every file
+(details in [LEIAME.md](LEIAME.md#publicar-uma-versão-nova-mantenedor)).
+
 ---
 
 Made with ☕ and way too many pointless deaths in Muldraugh.

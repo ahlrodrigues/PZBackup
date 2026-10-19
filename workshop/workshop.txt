@@ -71,6 +71,6 @@ description=
 description=[img]https://raw.githubusercontent.com/ahlrodrigues/PZBackup/main/docs/img/morreu-pt.png[/img]
 description=
 description=[hr][/hr]
-description=Build 42 (tested on 42.21.0) | Single player | Open source, [url=https://github.com/ahlrodrigues/PZBackup/blob/main/LICENSE]MIT[/url]
+description=Version __VERSAO__ | Build 42 (tested on 42.21.0) | Single player | Open source, [url=https://github.com/ahlrodrigues/PZBackup/blob/main/LICENSE]MIT[/url]
 tags=Build 42;Interface;Misc
 visibility=private

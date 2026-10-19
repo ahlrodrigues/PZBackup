@@ -326,6 +326,16 @@ end
 function PZBackupJanela:prerender()
     ISPanel.prerender(self)
     self:drawText(PZBackup.T("jan_titulo"), 12, 12, 1, 1, 1, 1, UIFont.Medium)
+    -- Versions, top right: mod and script (red when they differ)
+    local vs = PZBackup.versaoScript()
+    local txtVersao = PZBackup.T("jan_versoes", PZBackup.VERSAO, vs or "?")
+    local larg = 7 * #txtVersao
+    pcall(function() larg = getTextManager():MeasureStringX(FONTE, txtVersao) end)
+    if vs == PZBackup.VERSAO then
+        self:drawText(txtVersao, self.width - 12 - larg, 16, 0.6, 0.6, 0.6, 1, FONTE)
+    else
+        self:drawText(txtVersao, self.width - 12 - larg, 16, 1, 0.45, 0.35, 1, FONTE)
+    end
     self:desenharLegenda()
 
     -- Re-reads the list a moment after a request (the script answers within ~1 s)

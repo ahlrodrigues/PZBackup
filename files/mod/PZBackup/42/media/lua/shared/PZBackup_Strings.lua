@@ -13,6 +13,10 @@ PZBackup = PZBackup or {}
 
 local TEXTOS = {
     -- Options (Options > Mods > PZ Backup)
+    opt_versao              = { pt = "PZ Backup - versao %s",
+                                en = "PZ Backup - version %s" },
+    opt_versao_dica         = { pt = "A versao do script aparece na janela do F9. Novidades e script: %s",
+                                en = "The script's version shows in the F9 window. What's new and the script: %s" },
     opt_idioma              = { pt = "Idioma / Language",
                                 en = "Language / Idioma" },
     opt_idioma_dica         = { pt = "Automatico segue o idioma do jogo (portugues ou, nos demais, ingles). Os nomes das opcoes mudam ao reiniciar o jogo.",
@@ -73,6 +77,8 @@ local TEXTOS = {
                                 en = "Backup script is not running. Get it at: %s" },
     msg_script_nao_detectado= { pt = "PZ Backup: script nao detectado. Instale: %s",
                                 en = "PZ Backup: script not found. Get it at: %s" },
+    msg_versoes_diferentes  = { pt = "PZ Backup: mod %s, script %s. Atualize o script: %s",
+                                en = "PZ Backup: mod %s, script %s. Update the script: %s" },
     msg_backup_solicitado   = { pt = "Backup solicitado...",
                                 en = "Backup requested..." },
     msg_falha_pedido        = { pt = "PZ Backup: falha ao gravar o pedido",
@@ -127,6 +133,8 @@ local TEXTOS = {
                                 en = "Select a backup from the list." },
     jan_script_parado       = { pt = "Script de backup nao esta rodando. Abra o jogo pela Steam/atalho com o PZ Backup.",
                                 en = "Backup script is not running. Start the game through Steam/the PZ Backup shortcut." },
+    jan_versoes             = { pt = "mod %s | script %s",
+                                en = "mod %s | script %s" },
     jan_btn_nota            = { pt = "Nota",
                                 en = "Note" },
     nota_titulo_backup      = { pt = "Nota deste backup (ex.: antes do shopping):",

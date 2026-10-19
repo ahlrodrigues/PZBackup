@@ -56,6 +56,21 @@ versions follow [SemVer](https://semver.org/).
   `BackupsSaves/.info/`.
 - Workshop description rewritten: every feature explained on its own, in both languages.
 
+- **Version everywhere**: options page "PZ Backup X.Y.Z" with a version title; F9 window
+  shows `mod X | script Y` (red when they differ); warning on game start when mod and
+  script versions differ; `pz-backup.sh version` / `pz-backup.ps1 version`; the script's
+  heartbeat (`pzbackup_ativo.txt`) carries its version on line 2; version in the Workshop
+  description footer and in `console.txt`.
+- `tools/bump-version.sh X.Y.Z` sets the version in all 9 places (mod.info,
+  `PZBackup_Version.lua`, both scripts, README, LEIAME, CHANGELOG `[Unreleased]` →
+  `[X.Y.Z] - date` + release link); `--check` verifies them. `prepare-workshop.sh` refuses
+  to build the upload folder when versions differ.
+- `tools/publish.sh`: after downloading the patch and the release zip, does everything up
+  to the Workshop "Update" click — applies the patch (or replaces/updates an older delivery
+  of the same version), checks versions, pushes commit and tag to Forgejo, creates the
+  GitHub release with the zip once the mirror has the tag (`gh`), installs the new
+  `pz-backup.sh` locally and builds the Workshop folder. Safe to run again.
+
 ### Changed
 - The F9 window is larger (720×700) to fit the legend, the details and the *Pin* / *Note* buttons.
 - LEIAME: fixed the outdated language line in the feature table.

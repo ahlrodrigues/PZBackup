@@ -15,6 +15,7 @@
     pzbackup_status.txt     (script -> mod)  result of each action, shown on screen
     pzbackup_lista.txt      (script -> mod)  available backups: name|label
     pzbackup_ativo.txt      (script -> mod)  Unix time of the script's last heartbeat
+                                             + line 2 (v1.4+): the script's version
     pzbackup_info.txt       (mod -> script)  current character/world info + active mods (key=value),
                                              saved by the script next to each backup (v1.4+)
     pzbackup_fixar.txt      (mod -> script)  commands, one per line (v1.4+):
@@ -436,6 +437,14 @@ function PZBackup.agora()
     return math.floor(t)
 end
 
+-- Version the running script reports (line 2 of the heartbeat); nil for scripts
+-- older than 1.4, which only write the time
+function PZBackup.versaoScript()
+    local v = PZBackup.lerLinhas(PZBackup.ARQ_ATIVO)[2]
+    if v and v:match("^%d+%.%d+%.%d+") then return v:match("^(%d+%.%d+%.%d+)") end
+    return nil
+end
+
 function PZBackup.scriptAtivo()
     local l = PZBackup.lerLinhas(PZBackup.ARQ_ATIVO)[1]
     local ts = tonumber(l or "")
@@ -464,7 +473,7 @@ local function criarOpcoes()
         return
     end
     local ok, opcoes = pcall(function()
-        return PZAPI.ModOptions:create("PZBackupAHLR", "PZ Backup")
+        return PZAPI.ModOptions:create("PZBackupAHLR", "PZ Backup " .. PZBackup.VERSAO)
     end)
     if not (ok and opcoes) then
         print("[PZBackup] failed to create options: " .. tostring(opcoes))
@@ -475,6 +484,12 @@ local function criarOpcoes()
         if not ok2 then print("[PZBackup] option '" .. nome .. "' failed: " .. tostring(r)) end
         return ok2 and r or nil
     end
+    -- Version on top of the options page (the script's version shows in the F9 window)
+    tentar("versao", function()
+        opcoes:addTitle(PZBackup.T("opt_versao", PZBackup.VERSAO))
+        opcoes:addDescription(PZBackup.T("opt_versao_dica", PZBackup.URL))
+        return true
+    end)
     -- Language: Automatic (game language, default) / English / Portugues (pt-BR)
     -- Item order must match PZBackup.IDIOMA_AUTO / _EN / _PT (shared/PZBackup_Strings.lua)
     PZBackup.opcaoIdioma = tentar("idioma", function()
@@ -725,11 +740,18 @@ if Events.EveryTenMinutes then Events.EveryTenMinutes.Add(PZBackup.gravarInfo) e
 Events.OnGameStart.Add(function()
     print("[PZBackup] language: " .. PZBackup.idioma() .. " (game: " .. PZBackup.idiomaDoJogo() .. ")")
 end)
--- Players who only installed the mod (e.g. from the Workshop) learn the script is missing
+-- Players who only installed the mod (e.g. from the Workshop) learn the script is missing;
+-- mod and script from different versions get a reminder to update the other one
 Events.OnGameStart.Add(function()
     if not PZBackup.scriptAtivo() then
         print("[PZBackup] backup script not detected. Get it at: https://" .. PZBackup.URL)
         PZBackup.mostrar(PZBackup.T("msg_script_nao_detectado", PZBackup.URL), true)
+        return
+    end
+    local vs = PZBackup.versaoScript()
+    print("[PZBackup] mod " .. PZBackup.VERSAO .. ", script " .. tostring(vs or "older than 1.4"))
+    if vs ~= PZBackup.VERSAO then
+        PZBackup.mostrar(PZBackup.T("msg_versoes_diferentes", PZBackup.VERSAO, vs or "< 1.4", PZBackup.URL), true)
     end
 end)
 if Events.OnMainMenuEnter then Events.OnMainMenuEnter.Add(PZBackup.salvarConfig) end
@@ -739,5 +761,5 @@ Events.OnPlayerDeath.Add(aoMorrer)
 Events.OnTick.Add(lerStatus)
 Events.OnTick.Add(verificarPerigo)
 
-print("[PZBackup] loaded - backup key: " .. tostring(Keyboard.getKeyName(tecla(opcaoBackup, TECLA_BACKUP_PADRAO)))
+print("[PZBackup] " .. PZBackup.VERSAO .. " loaded - backup key: " .. tostring(Keyboard.getKeyName(tecla(opcaoBackup, TECLA_BACKUP_PADRAO)))
     .. ", restore key: " .. tostring(Keyboard.getKeyName(tecla(opcaoRestaurar, TECLA_RESTAURAR_PADRAO))))
