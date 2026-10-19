@@ -54,6 +54,7 @@ ok "Script installed in $BASE/pz-backup.sh"
 
 # 5. Optional dependencies
 command -v python3 >/dev/null || warn "python3 not found: no beeps and no extra players.db death check (the mod still detects deaths)"
+command -v rsync >/dev/null || warn "rsync not found: backups will be full copies instead of incremental (install rsync to save disk space)"
 command -v paplay >/dev/null || command -v pw-play >/dev/null || command -v aplay >/dev/null \
   || warn "No audio player found (paplay/pw-play/aplay): no beeps"
 

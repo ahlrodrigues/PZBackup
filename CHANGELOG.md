@@ -3,6 +3,70 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org/).
 
+## [1.4.0] - 2026-10-18
+
+### Added
+- **Pinned backups.** *Pin* / *Unpin* button in the F9 window (`[PIN]` tag in the list).
+  Pinned backups are never removed by the rotation and don't count toward `KEEP` / `$Keep`.
+  From a terminal: `pz-backup.sh pin N` / `unpin N` (Windows: `pz-backup.ps1 pin N`).
+  Pins are stored in `BackupsSaves/.pinned`.
+- **Backup details in the F9 window**, up to 8 color-coded lines for the selected backup:
+  character and profession, days survived, zombie kills; in-game date and time; health %,
+  bites, scratches and lacerations (red **BITTEN!**); approximate vanilla town, coordinates
+  and floor, indoors/outdoors/in a vehicle; hunger, thirst, tiredness and panic; 3 best
+  skills, strength, fitness and weight. Every field is read defensively (B41 and B42 API
+  names), and a field the game doesn't provide is simply left out. `list` and the terminal
+  restore show a summary with health and a *BITTEN* flag.
+- **Mod check on restore.** Each backup stores the mod list active when it was taken. The F9
+  window says whether it matches the mods active now, and the confirm dialog names the mods
+  that are only in the backup or only active now. The terminal restore lists them with `-`/`+`.
+- **Safe auto-restore.** When you die, the auto-restore picks the newest backup that is
+  **not bitten** and **not taken within the death margin** (default 60 s; option *Margin
+  before death*: off, 30 s, 1, 2, 5 min). The log says how many were skipped. The mod now
+  writes the time of death (line 3 of `pzbackup_estado.txt`); deaths are kept in
+  `BackupsSaves/.deaths`.
+- **Automatic backups wait during danger**: zombies chasing or within 8 tiles on the same
+  floor, panic ≥ 50%, bleeding, on fire, health < 25%. Retries every `DANGER_RETRY` (20 s)
+  and logs when it resumes. The final backup is skipped if the game closed in danger.
+  F7/F8 never wait. Option *Postpone automatic backups while in danger* (on).
+- **Colored backup list with a legend**: red = bitten, yellow = danger at backup time /
+  right before a death / health < 50% / failed verification, green = normal, grey = no
+  details. The confirm dialog warns about bitten and right-before-death backups.
+- **Notes**: **F7** backs up with a note; **Note** button in F9 names any backup; terminal
+  `note N "text"`. Shown in the list and the details (max 60 characters).
+- **Save safety**: waits until the save stops changing (`QUIET_SECONDS`, 3 s, up to 30 s)
+  before copying; verifies each copy (files and sizes, plus `players.db` `quick_check` on
+  Linux) and copies again once if the game wrote in the middle; marks failures.
+- **Backup before a game update**: when Steam's build number of Project Zomboid changes,
+  every world gets a **pinned** backup before the new version opens it
+  (`UPDATE_BACKUP`, origin tag `[ATUALIZACAO]`).
+- **Low disk space**: automatic backups pause below `MIN_FREE_MB` (1024) with a warning at
+  most every 30 min; F7/F8 still try.
+- **Tiered retention**: besides the `KEEP` newest, 1 per hour of the last `KEEP_HOURLY`
+  (24) hours and 1 per in-game day of the last `KEEP_GAME_DAYS` (14) game days.
+- **Incremental backups**: unchanged files are hard links to the previous backup
+  (`rsync --link-dest` on Linux, `CreateHardLink` on Windows/NTFS; full copy otherwise).
+  Details show size and MB new.
+- Details panel also shows how the backup was made (source, size, MB new), the danger at
+  backup time, the distance to a death and the note.
+- New mod ↔ script files: `pzbackup_info.txt` (mod → script, `key=value`, refreshed every
+  10 in-game minutes and before each F8), `pzbackup_fixar.txt` (mod → script) and
+  `pzbackup_detalhes.txt` (script → mod, `name|pinned|key=value|...`). The script passes
+  every field through, so future fields only need a mod update. Details are kept in
+  `BackupsSaves/.info/`.
+- Workshop description rewritten: every feature explained on its own, in both languages.
+
+### Changed
+- The F9 window is larger (720×700) to fit the legend, the details and the *Pin* / *Note* buttons.
+- LEIAME: fixed the outdated language line in the feature table.
+- Windows: the per-world rotation no longer uses `-Filter`, so world names with `[` `]`
+  are matched correctly.
+
+### Compatibility
+- `pzbackup_lista.txt` keeps its `name|label` format: a v1.4 script works with a v1.3 mod
+  and vice versa (without the new features until both are updated).
+- Backups made before v1.4 show *No details*; they restore normally and can be pinned.
+
 ## [1.3.0] - 2026-10-18
 
 ### Changed
@@ -106,6 +170,7 @@ First public release.
 - Installers for Linux (native and Flatpak Steam) and Windows 10/11.
 - In-game warning, with the repository address, when the script isn't installed.
 
+[1.4.0]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.4.0
 [1.3.0]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.3.0
 [1.2.0]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.2.0
 [1.1.1]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.1.1
