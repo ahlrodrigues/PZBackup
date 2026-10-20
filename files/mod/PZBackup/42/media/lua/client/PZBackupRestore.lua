@@ -71,12 +71,12 @@ end
 -- Closes the game so the script can restore
 ------------------------------------------------------------------------
 function PZBackup.fecharJogo()
-    local core = getCore()
+    -- In game: quit to desktop (the script restores over it); from the main menu: quit
     if getPlayer() then
-        -- In game: quit to desktop (the script restores over it)
-        if pcall(function() core:quitToDesktop() end) then return end
+        getCore():quitToDesktop()
+    else
+        getCore():quit()
     end
-    pcall(function() core:quit() end)
 end
 
 local fecharJogo = PZBackup.fecharJogo
@@ -89,16 +89,14 @@ function PZBackup.pedirTexto(titulo, padrao, aoConfirmar)
     local box = ISTextBox:new((getCore():getScreenWidth() - w) / 2, (getCore():getScreenHeight() - h) / 2,
         w, h, titulo, padrao or "", nil, function(_, botao)
             if botao.internal ~= "OK" then return end
-            local texto = ""
-            pcall(function() texto = botao.parent.entry:getText() end)
-            texto = PZBackup.limparTexto(texto):gsub("^%s+", ""):gsub("%s+$", "")
+            local texto = PZBackup.limparTexto(botao.parent.entry:getText()):gsub("^%s+", ""):gsub("%s+$", "")
             if #texto > MAX_NOTA then texto = texto:sub(1, MAX_NOTA) end
             aoConfirmar(texto)
         end)
     box:initialise()
     box:addToUIManager()
-    pcall(function() box:setAlwaysOnTop(true) end)
-    pcall(function() box.entry:focus() end)
+    box:setAlwaysOnTop(true)
+    box.entry:focus()
     return box
 end
 
@@ -317,8 +315,7 @@ function PZBackupJanela:desenharLegenda()
         local texto = PZBackup.T(c.chave)
         self:drawRect(x, Y_LEGENDA + 3, 10, 10, 1, c.cor[1], c.cor[2], c.cor[3])
         self:drawText(texto, x + 14, Y_LEGENDA, c.cor[1], c.cor[2], c.cor[3], 1, FONTE)
-        local larg = 7 * #texto
-        pcall(function() larg = tm:MeasureStringX(FONTE, texto) end)
+        local larg = tm:MeasureStringX(FONTE, texto)
         x = x + 14 + larg + 18
     end
 end
@@ -329,8 +326,7 @@ function PZBackupJanela:prerender()
     -- Versions, top right: mod and script (red when they differ)
     local vs = PZBackup.versaoScript()
     local txtVersao = PZBackup.T("jan_versoes", PZBackup.VERSAO, vs or "?")
-    local larg = 7 * #txtVersao
-    pcall(function() larg = getTextManager():MeasureStringX(FONTE, txtVersao) end)
+    local larg = getTextManager():MeasureStringX(FONTE, txtVersao)
     if vs == PZBackup.VERSAO then
         self:drawText(txtVersao, self.width - 12 - larg, 16, 0.6, 0.6, 0.6, 1, FONTE)
     else
@@ -512,7 +508,7 @@ function PZBackupJanela:aoClicarRestaurar()
         560, altura, texto, true, self, PZBackupJanela.aoConfirmar, nil, item.item)
     dlg:initialise()
     dlg:addToUIManager()
-    pcall(function() dlg:setAlwaysOnTop(true) end)
+    dlg:setAlwaysOnTop(true)
 end
 
 function PZBackupJanela:aoConfirmar(botao, nome)
@@ -547,7 +543,7 @@ function PZBackup.abrirJanela()
     local j = PZBackupJanela:new()
     j:initialise()
     j:addToUIManager()
-    pcall(function() j:setAlwaysOnTop(true) end)
-    pcall(function() j:bringToTop() end)
+    j:setAlwaysOnTop(true)
+    j:bringToTop()
     PZBackup.janela = j
 end

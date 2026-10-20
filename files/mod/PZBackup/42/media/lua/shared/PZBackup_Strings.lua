@@ -280,23 +280,17 @@ PZBackup.IDIOMA_AUTO, PZBackup.IDIOMA_EN, PZBackup.IDIOMA_PT = 1, 2, 3
 
 -- Game language: exact code PT or PTBR = Portuguese; anything else = English
 function PZBackup.idiomaDoJogo()
-    local codigo = nil
-    pcall(function() codigo = Translator.getLanguage():name() end)
-    if not codigo then
-        pcall(function() codigo = getCore():getOptionLanguageName() end)
-    end
-    codigo = string.upper(tostring(codigo or ""))
+    local codigo = string.upper(tostring(Translator.getLanguage():name()))
     if codigo == "PT" or codigo == "PTBR" then return "pt" end
     return "en"
 end
 
 function PZBackup.idioma()
+    -- nil while the options are being created (client/PZBackup.lua)
     if PZBackup.opcaoIdioma then
-        local ok, v = pcall(function() return PZBackup.opcaoIdioma:getValue() end)
-        if ok then
-            if v == PZBackup.IDIOMA_EN then return "en" end
-            if v == PZBackup.IDIOMA_PT then return "pt" end
-        end
+        local v = PZBackup.opcaoIdioma:getValue()
+        if v == PZBackup.IDIOMA_EN then return "en" end
+        if v == PZBackup.IDIOMA_PT then return "pt" end
     end
     return PZBackup.idiomaDoJogo()       -- Automatic (default)
 end

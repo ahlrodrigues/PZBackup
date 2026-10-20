@@ -107,7 +107,7 @@ function PZBackup.abrirLog()
     local j = PZBackupLogJanela:new()
     j:initialise()
     j:addToUIManager()
-    pcall(function() j:setAlwaysOnTop(true) end)
-    pcall(function() j:bringToTop() end)
+    j:setAlwaysOnTop(true)
+    j:bringToTop()
     PZBackup.janelaLog = j
 end

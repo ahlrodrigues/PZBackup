@@ -18,9 +18,7 @@ PZBackupAuto = ISPanel:derive("PZBackupAuto")
 local LARGURA, ALTURA = 460, 150
 
 local function agoraMs()
-    local ok, v = pcall(function() return getTimestampMs() end)
-    if ok and v then return v end
-    return getTimestamp() * 1000
+    return getTimestampMs()
 end
 
 function PZBackupAuto:new(modoMundo)
@@ -105,6 +103,6 @@ function PZBackup.iniciarRestauracaoAuto(modoMundo)
     local p = PZBackupAuto:new(modoMundo)
     p:initialise()
     p:addToUIManager()
-    pcall(function() p:setAlwaysOnTop(true) end)
+    p:setAlwaysOnTop(true)
     PZBackup.painelAuto = p
 end

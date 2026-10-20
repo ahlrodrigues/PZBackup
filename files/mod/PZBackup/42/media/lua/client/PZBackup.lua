@@ -111,13 +111,11 @@ end
 
 function PZBackup.modsAtivos()
     local lista = {}
-    pcall(function()
-        local mods = getActivatedMods()
-        for i = 0, mods:size() - 1 do
-            local id = PZBackup.normalizarMod(mods:get(i))
-            if id ~= "" then table.insert(lista, id) end
-        end
-    end)
+    local mods = getActivatedMods()
+    for i = 0, mods:size() - 1 do
+        local id = PZBackup.normalizarMod(mods:get(i))
+        if id ~= "" then table.insert(lista, id) end
+    end
     table.sort(lista)
     return lista
 end
@@ -127,14 +125,6 @@ local function limpar(v)
     return (tostring(v or ""):gsub("[\r\n|;=]", " "))
 end
 PZBackup.limparTexto = limpar
-
--- Runs f protected; returns its value or nil (the game API changes between builds,
--- so every read is optional: a field that fails is simply left out)
-local function tentar(f)
-    local ok, v = pcall(f)
-    if ok then return v end
-    return nil
-end
 
 -- Approximate areas of the vanilla towns (x1, y1, x2, y2). Only a hint for the
 -- details panel: modded maps or new B42 towns just show coordinates.
@@ -156,53 +146,37 @@ function PZBackup.cidadeAprox(x, y)
     return ""
 end
 
--- 0..1 stats become 0..100; values already in 0..100 stay as they are
-local function porcento(v)
-    if type(v) ~= "number" then return nil end
-    if v <= 1 then v = v * 100 end
-    return math.floor(v + 0.5)
-end
-
--- Reads a stat by name, B41 style (getHunger) or B42 style (get(CharacterStat.HUNGER))
-local function lerStat(stats, nome)
-    local v = tentar(function() return stats["get" .. nome](stats) end)
-    if v == nil and CharacterStat then
-        v = tentar(function() return stats:get(CharacterStat[string.upper(nome)]) end)
-    end
-    return porcento(v)
+-- Stat as 0..100 % of its own range (hunger is 0..1, panic 0..100, ...)
+local function lerStat(stats, stat)
+    local min, max = stat:getMinimumValue(), stat:getMaximumValue()
+    return math.floor((stats:get(stat) - min) / (max - min) * 100 + 0.5)
 end
 
 local function profissao(p)
-    local d = p:getDescriptor()
-    local id = tentar(function() return d:getProfession() end)
-            or tentar(function() return d:getCharacterProfession() end)
-    if id == nil then return "" end
-    local nome = tentar(function() return ProfessionFactory.getProfession(id):getName() end)
-              or tentar(function()
-                     return CharacterProfessionDefinition.getCharacterProfessionDefinition(id):getUIName()
-                 end)
+    local prof = p:getDescriptor():getCharacterProfession()
+    if not prof then return "" end
+    local def = CharacterProfessionDefinition.getCharacterProfessionDefinition(prof)
+    local nome = def and def:getUIName()
     if nome and nome ~= "" then return nome end
-    local s = tostring(id):gsub("^.*:", "")          -- "base:carpenter" -> "carpenter"
+    local s = tostring(prof:getName()):gsub("^.*:", "")      -- "base:carpenter" -> "carpenter"
     return (s:gsub("^%l", string.upper))
 end
 
 -- Three best skills ("Carpentry 5, Cooking 3, Aiming 2"); Strength and Fitness go apart
 local function habilidades(p)
     local lista = {}
-    pcall(function()
-        local perks = PerkFactory.PerkList
-        for i = 0, perks:size() - 1 do
-            local perk = perks:get(i)
-            local eFisico = (perk == Perks.Strength or perk == Perks.Fitness)
-            local eCategoria = tentar(function() return perk:getParent() == Perks.None end)
-            if not eFisico and not eCategoria then
-                local nivel = tentar(function() return p:getPerkLevel(perk) end) or 0
-                if nivel > 0 then
-                    table.insert(lista, { nome = tostring(perk:getName()), nivel = nivel })
-                end
+    local perks = PerkFactory.PerkList
+    for i = 0, perks:size() - 1 do
+        local perk = perks:get(i)
+        local eFisico = (perk == Perks.Strength or perk == Perks.Fitness)
+        local eCategoria = (perk:getParent() == Perks.None)
+        if not eFisico and not eCategoria then
+            local nivel = p:getPerkLevel(perk)
+            if nivel > 0 then
+                table.insert(lista, { nome = tostring(perk:getName()), nivel = nivel })
             end
         end
-    end)
+    end
     table.sort(lista, function(a, b)
         if a.nivel ~= b.nivel then return a.nivel > b.nivel end
         return a.nome < b.nome
@@ -215,15 +189,13 @@ end
 -- Bites, scratches and lacerations across the body
 local function ferimentos(p)
     local m, a, l = 0, 0, 0
-    pcall(function()
-        local partes = p:getBodyDamage():getBodyParts()
-        for i = 0, partes:size() - 1 do
-            local bp = partes:get(i)
-            if tentar(function() return bp:bitten() end) then m = m + 1 end
-            if tentar(function() return bp:scratched() end) then a = a + 1 end
-            if tentar(function() return bp:isCut() end) then l = l + 1 end
-        end
-    end)
+    local partes = p:getBodyDamage():getBodyParts()
+    for i = 0, partes:size() - 1 do
+        local bp = partes:get(i)
+        if bp:bitten() then m = m + 1 end
+        if bp:scratched() then a = a + 1 end
+        if bp:isCut() then l = l + 1 end
+    end
     return m, a, l
 end
 
@@ -236,26 +208,19 @@ end
 --  flagged in red instead and skipped by the auto-restore)
 ------------------------------------------------------------------------
 local function zumbisPerto(p)
-    local stats = tentar(function() return p:getStats() end)
-    local n = stats and tentar(function() return stats:getNumChasingZombies() end)
-    if type(n) == "number" then
-        if n > 0 then return true end
-    end
-    -- Fallback / extra check: living zombies within PERIGO_RAIO tiles
-    local perto = false
-    pcall(function()
-        local px, py, pz = p:getX(), p:getY(), p:getZ()
-        local lista = getCell():getZombieList()
-        local r2 = PZBackup.PERIGO_RAIO * PZBackup.PERIGO_RAIO
-        for i = 0, lista:size() - 1 do
-            local z = lista:get(i)
-            if z and not z:isDead() and math.abs(z:getZ() - pz) < 1 then
-                local dx, dy = z:getX() - px, z:getY() - py
-                if dx * dx + dy * dy <= r2 then perto = true; break end
-            end
+    if p:getStats():getNumChasingZombies() > 0 then return true end
+    -- Also living zombies within PERIGO_RAIO tiles that aren't chasing (yet)
+    local px, py, pz = p:getX(), p:getY(), p:getZ()
+    local lista = getCell():getZombieList()
+    local r2 = PZBackup.PERIGO_RAIO * PZBackup.PERIGO_RAIO
+    for i = 0, lista:size() - 1 do
+        local z = lista:get(i)
+        if z and not z:isDead() and math.abs(z:getZ() - pz) < 1 then
+            local dx, dy = z:getX() - px, z:getY() - py
+            if dx * dx + dy * dy <= r2 then return true end
         end
-    end)
-    return perto
+    end
+    return false
 end
 
 function PZBackup.avaliarPerigo()
@@ -263,28 +228,13 @@ function PZBackup.avaliarPerigo()
     if not p or p:isDead() then return {} end
     local motivos = {}
     if zumbisPerto(p) then table.insert(motivos, "zumbis") end
-    local stats = tentar(function() return p:getStats() end)
-    if stats then
-        local panico = lerStat(stats, "Panic")
-        if panico and panico >= PZBackup.PERIGO_PANICO then table.insert(motivos, "panico") end
+    if lerStat(p:getStats(), CharacterStat.PANIC) >= PZBackup.PERIGO_PANICO then
+        table.insert(motivos, "panico")
     end
-    local bd = tentar(function() return p:getBodyDamage() end)
-    if bd then
-        local sangra = tentar(function() return bd:getNumPartsBleeding() end)
-        if type(sangra) ~= "number" then
-            sangra = 0
-            pcall(function()
-                local partes = bd:getBodyParts()
-                for i = 0, partes:size() - 1 do
-                    if partes:get(i):bleeding() then sangra = sangra + 1 end
-                end
-            end)
-        end
-        if sangra > 0 then table.insert(motivos, "sangrando") end
-        local saude = tentar(function() return bd:getOverallBodyHealth() end)
-        if type(saude) == "number" and saude < PZBackup.PERIGO_SAUDE then table.insert(motivos, "saude") end
-    end
-    if tentar(function() return p:isOnFire() end) then table.insert(motivos, "fogo") end
+    local bd = p:getBodyDamage()
+    if bd:getNumPartsBleeding() > 0 then table.insert(motivos, "sangrando") end
+    if bd:getOverallBodyHealth() < PZBackup.PERIGO_SAUDE then table.insert(motivos, "saude") end
+    if p:isOnFire() then table.insert(motivos, "fogo") end
     return motivos
 end
 
@@ -323,60 +273,42 @@ function PZBackup.infoPersonagem()
     end
 
     -- Character
-    add("personagem", tentar(function()
-        local d = p:getDescriptor()
-        return tostring(d:getForename() or "") .. " " .. tostring(d:getSurname() or "")
-    end))
-    add("profissao", tentar(function() return profissao(p) end))
-    add("dias", tentar(function() return math.floor((p:getHoursSurvived() or 0) / 24) end))
-    add("mortes", tentar(function() return p:getZombieKills() end))
+    local d = p:getDescriptor()
+    add("personagem", tostring(d:getForename() or "") .. " " .. tostring(d:getSurname() or ""))
+    add("profissao", profissao(p))
+    add("dias", math.floor(p:getHoursSurvived() / 24))
+    add("mortes", p:getZombieKills())
     add("habilidades", habilidades(p))
-    add("forca", tentar(function() return p:getPerkLevel(Perks.Strength) end))
-    add("condicionamento", tentar(function() return p:getPerkLevel(Perks.Fitness) end))
-    add("peso", tentar(function() return math.floor(p:getNutrition():getWeight() + 0.5) end))
+    add("forca", p:getPerkLevel(Perks.Strength))
+    add("condicionamento", p:getPerkLevel(Perks.Fitness))
+    add("peso", math.floor(p:getNutrition():getWeight() + 0.5))
 
     -- In-game date and time
-    local gt = tentar(function() return getGameTime() end)
-    if gt then
-        add("data_jogo", tentar(function()
-            return string.format("%02d/%02d/%d", gt:getDay() + 1, gt:getMonth() + 1, gt:getYear())
-        end))
-        add("hora_jogo", tentar(function()
-            return string.format("%02d:%02d", gt:getHour(), gt:getMinutes())
-        end))
-    end
+    local gt = getGameTime()
+    add("data_jogo", string.format("%02d/%02d/%d", gt:getDay() + 1, gt:getMonth() + 1, gt:getYear()))
+    add("hora_jogo", string.format("%02d:%02d", gt:getHour(), gt:getMinutes()))
 
     -- Health and wounds
-    local bd = tentar(function() return p:getBodyDamage() end)
-    if bd then
-        add("saude", tentar(function() return math.floor(bd:getOverallBodyHealth() + 0.5) end))
-        local m, a, l = ferimentos(p)
-        add("mordidas", m); add("arranhoes", a); add("laceracoes", l)
-    end
+    add("saude", math.floor(p:getBodyDamage():getOverallBodyHealth() + 0.5))
+    local m, a, l = ferimentos(p)
+    add("mordidas", m); add("arranhoes", a); add("laceracoes", l)
 
     -- State
-    local stats = tentar(function() return p:getStats() end)
-    if stats then
-        add("fome", lerStat(stats, "Hunger"))
-        add("sede", lerStat(stats, "Thirst"))
-        add("cansaco", lerStat(stats, "Fatigue"))
-        add("panico", lerStat(stats, "Panic"))
-    end
+    local stats = p:getStats()
+    add("fome", lerStat(stats, CharacterStat.HUNGER))
+    add("sede", lerStat(stats, CharacterStat.THIRST))
+    add("cansaco", lerStat(stats, CharacterStat.FATIGUE))
+    add("panico", lerStat(stats, CharacterStat.PANIC))
 
     -- Location
-    local x = tentar(function() return math.floor(p:getX()) end)
-    local y = tentar(function() return math.floor(p:getY()) end)
-    local z = tentar(function() return math.floor(p:getZ()) end) or 0
-    if x and y then
-        add("cidade", PZBackup.cidadeAprox(x, y))
-        add("coord", x .. "," .. y .. "," .. z)
-    end
+    local x, y, z = math.floor(p:getX()), math.floor(p:getY()), math.floor(p:getZ())
+    add("cidade", PZBackup.cidadeAprox(x, y))
+    add("coord", x .. "," .. y .. "," .. z)
     local ambiente = nil
-    if tentar(function() return p:getVehicle() end) then
+    if p:getVehicle() then
         ambiente = "veiculo"
-    else
-        local fora = tentar(function() return p:getCurrentSquare():isOutside() end)
-        if fora == true then ambiente = "fora" elseif fora == false then ambiente = "dentro" end
+    elseif p:getCurrentSquare() then
+        ambiente = p:getCurrentSquare():isOutside() and "fora" or "dentro"
     end
     add("ambiente", ambiente)
     add("perigo", table.concat(PZBackup.avaliarPerigo(), ","))
@@ -430,11 +362,9 @@ end
 
 -- The script writes the time every second; if the heartbeat is older than
 -- 30 s, it isn't running (game started without "game" mode).
--- Unix time in seconds (getTimestamp may come in ms depending on the build)
+-- Unix time in seconds
 function PZBackup.agora()
-    local t = getTimestamp()
-    if t > 100000000000 then t = t / 1000 end
-    return math.floor(t)
+    return math.floor(getTimestamp())
 end
 
 -- Version the running script reports (line 2 of the heartbeat); nil for scripts
@@ -460,127 +390,66 @@ function PZBackup.mostrar(texto, erro)
     if not p then return end
     local r, g, b = 80, 255, 120
     if erro then r, g, b = 255, 80, 80 end
-    local ok = pcall(function() p:setHaloNote(texto, r, g, b, 300) end)
-    if not ok then pcall(function() p:Say(texto) end) end
+    p:setHaloNote(texto, r, g, b, 300)
 end
 
 ------------------------------------------------------------------------
 -- Mod options (B42): Options > Mods > PZ Backup
 ------------------------------------------------------------------------
 local function criarOpcoes()
-    if not (PZAPI and PZAPI.ModOptions) then
-        print("[PZBackup] PZAPI.ModOptions not available - using default keys F8/F9")
-        return
-    end
-    local ok, opcoes = pcall(function()
-        return PZAPI.ModOptions:create("PZBackupAHLR", "PZ Backup " .. PZBackup.VERSAO)
-    end)
-    if not (ok and opcoes) then
-        print("[PZBackup] failed to create options: " .. tostring(opcoes))
-        return
-    end
-    local function tentar(nome, f)
-        local ok2, r = pcall(f)
-        if not ok2 then print("[PZBackup] option '" .. nome .. "' failed: " .. tostring(r)) end
-        return ok2 and r or nil
-    end
+    local opcoes = PZAPI.ModOptions:create("PZBackupAHLR", "PZ Backup " .. PZBackup.VERSAO)
     -- Version on top of the options page (the script's version shows in the F9 window)
-    tentar("versao", function()
-        opcoes:addTitle(PZBackup.T("opt_versao", PZBackup.VERSAO))
-        opcoes:addDescription(PZBackup.T("opt_versao_dica", PZBackup.URL))
-        return true
-    end)
+    opcoes:addTitle(PZBackup.T("opt_versao", PZBackup.VERSAO))
+    opcoes:addDescription(PZBackup.T("opt_versao_dica", PZBackup.URL))
     -- Language: Automatic (game language, default) / English / Portugues (pt-BR)
     -- Item order must match PZBackup.IDIOMA_AUTO / _EN / _PT (shared/PZBackup_Strings.lua)
-    PZBackup.opcaoIdioma = tentar("idioma", function()
-        local combo = opcoes:addComboBox("idioma", PZBackup.T("opt_idioma"), PZBackup.T("opt_idioma_dica"))
-        combo:addItem(PZBackup.T("opt_idioma_auto"), true)
-        combo:addItem(PZBackup.T("opt_idioma_en"), false)
-        combo:addItem(PZBackup.T("opt_idioma_pt"), false)
-        return combo
-    end)
-    opcaoBackup = tentar("teclaBackup", function()
-        return opcoes:addKeyBind("teclaBackup", PZBackup.T("opt_tecla_backup"), TECLA_BACKUP_PADRAO,
-            PZBackup.T("opt_tecla_backup_dica"))
-    end)
-    opcaoRestaurar = tentar("teclaRestaurar", function()
-        return opcoes:addKeyBind("teclaRestaurar", PZBackup.T("opt_tecla_restaurar"), TECLA_RESTAURAR_PADRAO,
-            PZBackup.T("opt_tecla_restaurar_dica"))
-    end)
-    tentar("botaoRestaurar", function()
-        return opcoes:addButton("botaoRestaurar", PZBackup.T("opt_botao_restaurar"),
-            PZBackup.T("opt_botao_restaurar_dica"),
-            function() if PZBackup.abrirJanela then PZBackup.abrirJanela() end end)
-    end)
-    tentar("botaoLog", function()
-        return opcoes:addButton("botaoLog", PZBackup.T("opt_botao_log"),
-            PZBackup.T("opt_botao_log_dica"),
-            function() if PZBackup.abrirLog then PZBackup.abrirLog() end end)
-    end)
-    opcaoNota = tentar("teclaNota", function()
-        return opcoes:addKeyBind("teclaNota", PZBackup.T("opt_tecla_nota"), TECLA_NOTA_PADRAO,
-            PZBackup.T("opt_tecla_nota_dica"))
-    end)
-    opcaoRestaurarAuto = tentar("restaurarAuto", function()
-        return opcoes:addTickBox("restaurarAuto", PZBackup.T("opt_restaurar_auto"),
-            RESTAURAR_AUTO_PADRAO, PZBackup.T("opt_restaurar_auto_dica"))
-    end)
+    PZBackup.opcaoIdioma = opcoes:addComboBox("idioma", PZBackup.T("opt_idioma"), PZBackup.T("opt_idioma_dica"))
+    PZBackup.opcaoIdioma:addItem(PZBackup.T("opt_idioma_auto"), true)
+    PZBackup.opcaoIdioma:addItem(PZBackup.T("opt_idioma_en"), false)
+    PZBackup.opcaoIdioma:addItem(PZBackup.T("opt_idioma_pt"), false)
+    opcaoBackup = opcoes:addKeyBind("teclaBackup", PZBackup.T("opt_tecla_backup"), TECLA_BACKUP_PADRAO,
+        PZBackup.T("opt_tecla_backup_dica"))
+    opcaoRestaurar = opcoes:addKeyBind("teclaRestaurar", PZBackup.T("opt_tecla_restaurar"), TECLA_RESTAURAR_PADRAO,
+        PZBackup.T("opt_tecla_restaurar_dica"))
+    opcoes:addButton("botaoRestaurar", PZBackup.T("opt_botao_restaurar"), PZBackup.T("opt_botao_restaurar_dica"),
+        function() if PZBackup.abrirJanela then PZBackup.abrirJanela() end end)
+    opcoes:addButton("botaoLog", PZBackup.T("opt_botao_log"), PZBackup.T("opt_botao_log_dica"),
+        function() if PZBackup.abrirLog then PZBackup.abrirLog() end end)
+    opcaoNota = opcoes:addKeyBind("teclaNota", PZBackup.T("opt_tecla_nota"), TECLA_NOTA_PADRAO,
+        PZBackup.T("opt_tecla_nota_dica"))
+    opcaoRestaurarAuto = opcoes:addTickBox("restaurarAuto", PZBackup.T("opt_restaurar_auto"),
+        RESTAURAR_AUTO_PADRAO, PZBackup.T("opt_restaurar_auto_dica"))
     -- Death margin: order must match PZBackup.MARGENS
-    opcaoMargem = tentar("margemMorte", function()
-        local combo = opcoes:addComboBox("margemMorte", PZBackup.T("opt_margem"), PZBackup.T("opt_margem_dica"))
-        for i, seg in ipairs(PZBackup.MARGENS) do
-            local nome = (seg == 0) and PZBackup.T("opt_margem_off")
-                      or (seg < 60 and PZBackup.T("opt_margem_seg", seg) or PZBackup.T("opt_margem_min", seg / 60))
-            combo:addItem(nome, i == MARGEM_PADRAO_ITEM)
-        end
-        return combo
-    end)
-    opcaoAdiarPerigo = tentar("adiarPerigo", function()
-        return opcoes:addTickBox("adiarPerigo", PZBackup.T("opt_adiar_perigo"),
-            ADIAR_PERIGO_PADRAO, PZBackup.T("opt_adiar_perigo_dica"))
-    end)
-    opcaoApagarMortos = tentar("apagarMortos", function()
-        return opcoes:addTickBox("apagarMortos", PZBackup.T("opt_apagar_mortos"),
-            APAGAR_MORTOS_PADRAO, PZBackup.T("opt_apagar_mortos_dica"))
-    end)
+    opcaoMargem = opcoes:addComboBox("margemMorte", PZBackup.T("opt_margem"), PZBackup.T("opt_margem_dica"))
+    for i, seg in ipairs(PZBackup.MARGENS) do
+        local nome = (seg == 0) and PZBackup.T("opt_margem_off")
+                  or (seg < 60 and PZBackup.T("opt_margem_seg", seg) or PZBackup.T("opt_margem_min", seg / 60))
+        opcaoMargem:addItem(nome, i == MARGEM_PADRAO_ITEM)
+    end
+    opcaoAdiarPerigo = opcoes:addTickBox("adiarPerigo", PZBackup.T("opt_adiar_perigo"),
+        ADIAR_PERIGO_PADRAO, PZBackup.T("opt_adiar_perigo_dica"))
+    opcaoApagarMortos = opcoes:addTickBox("apagarMortos", PZBackup.T("opt_apagar_mortos"),
+        APAGAR_MORTOS_PADRAO, PZBackup.T("opt_apagar_mortos_dica"))
     -- Called when the player applies the options
-    pcall(function()
-        opcoes.apply = function() PZBackup.salvarConfig() end
-    end)
+    opcoes.apply = function() PZBackup.salvarConfig() end
 end
 
 -- Writes the options the script needs to know
 function PZBackup.apagarMortos()
-    if opcaoApagarMortos then
-        local ok, v = pcall(function() return opcaoApagarMortos:getValue() end)
-        if ok and v ~= nil then return v == true end
-    end
-    return APAGAR_MORTOS_PADRAO
+    return opcaoApagarMortos:getValue() == true
 end
 
 function PZBackup.restaurarAuto()
-    if opcaoRestaurarAuto then
-        local ok, v = pcall(function() return opcaoRestaurarAuto:getValue() end)
-        if ok and v ~= nil then return v == true end
-    end
-    return RESTAURAR_AUTO_PADRAO
+    return opcaoRestaurarAuto:getValue() == true
 end
 
 function PZBackup.adiarPerigo()
-    if opcaoAdiarPerigo then
-        local ok, v = pcall(function() return opcaoAdiarPerigo:getValue() end)
-        if ok and v ~= nil then return v == true end
-    end
-    return ADIAR_PERIGO_PADRAO
+    return opcaoAdiarPerigo:getValue() == true
 end
 
 -- Death margin in seconds (0 = off)
 function PZBackup.margemMorte()
-    if opcaoMargem then
-        local ok, v = pcall(function() return opcaoMargem:getValue() end)
-        if ok and PZBackup.MARGENS[v] then return PZBackup.MARGENS[v] end
-    end
-    return PZBackup.MARGENS[MARGEM_PADRAO_ITEM]
+    return PZBackup.MARGENS[opcaoMargem:getValue()] or PZBackup.MARGENS[MARGEM_PADRAO_ITEM]
 end
 
 function PZBackup.salvarConfig()
@@ -594,10 +463,8 @@ end
 criarOpcoes()
 
 local function tecla(opcao, padrao)
-    if opcao then
-        local ok, v = pcall(function() return opcao:getValue() end)
-        if ok and v and v ~= 0 then return v end
-    end
+    local v = opcao:getValue()
+    if v and v ~= 0 then return v end
     return padrao
 end
 
@@ -659,10 +526,7 @@ end
 ------------------------------------------------------------------------
 -- "mode/world" of the loaded save (same layout as Saves/<mode>/<world>)
 function PZBackup.mundoAtual()
-    local modo, mundo = "", ""
-    pcall(function() modo = tostring(getWorld():getGameMode() or "") end)
-    pcall(function() mundo = tostring(getWorld():getWorld() or "") end)
-    return modo .. "/" .. mundo
+    return tostring(getWorld():getGameMode() or "") .. "/" .. tostring(getWorld():getWorld() or "")
 end
 
 local mundoAtual = PZBackup.mundoAtual
@@ -736,7 +600,7 @@ Events.OnGameStart.Add(marcarVivo)
 Events.OnGameStart.Add(PZBackup.salvarConfig)
 Events.OnGameStart.Add(PZBackup.gravarInfo)
 -- Keeps the details fresh for the automatic backups (10 game minutes ~ 25 s by default)
-if Events.EveryTenMinutes then Events.EveryTenMinutes.Add(PZBackup.gravarInfo) end
+Events.EveryTenMinutes.Add(PZBackup.gravarInfo)
 Events.OnGameStart.Add(function()
     print("[PZBackup] language: " .. PZBackup.idioma() .. " (game: " .. PZBackup.idiomaDoJogo() .. ")")
 end)
@@ -754,8 +618,8 @@ Events.OnGameStart.Add(function()
         PZBackup.mostrar(PZBackup.T("msg_versoes_diferentes", PZBackup.VERSAO, vs or "< 1.4", PZBackup.URL), true)
     end
 end)
-if Events.OnMainMenuEnter then Events.OnMainMenuEnter.Add(PZBackup.salvarConfig) end
-if Events.OnCreatePlayer then Events.OnCreatePlayer.Add(aoCriarPersonagem) end
+Events.OnMainMenuEnter.Add(PZBackup.salvarConfig)
+Events.OnCreatePlayer.Add(aoCriarPersonagem)
 Events.OnKeyPressed.Add(aoPressionarTecla)
 Events.OnPlayerDeath.Add(aoMorrer)
 Events.OnTick.Add(lerStatus)
