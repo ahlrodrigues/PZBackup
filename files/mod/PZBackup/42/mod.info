@@ -4,5 +4,5 @@ description=Saves your save while you play: auto backup every 5 min, F8 backup n
 poster=poster.png
 icon=icon.png
 url=https://github.com/ahlrodrigues/PZBackup
-modversion=1.4.0
+modversion=1.4.1
 versionMin=42.0

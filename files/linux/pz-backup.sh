@@ -1,6 +1,6 @@
 #!/bin/bash
 # pz-backup.sh — automatic and manual save backups for Project Zomboid (Linux)
-# Version 1.4.0 — https://github.com/ahlrodrigues/PZBackup — MIT License
+# Version 1.4.1 — https://github.com/ahlrodrigues/PZBackup — MIT License
 #
 # Requires: bash. Recommended: python3 (beeps and players.db death check)
 #           and paplay/pw-play/aplay (sound). Without python3 backups still work.
@@ -22,7 +22,7 @@
 #                      (also serves the PZ Backup mod's keys and restore window)
 #   Older Portuguese command names still work: jogo = game, limpar = clean.
 
-VERSION="1.4.0"                           # updated by tools/bump-version.sh
+VERSION="1.4.1"                           # updated by tools/bump-version.sh
 
 # ---------------- Settings ----------------
 INTERVAL=5                                # minutes between automatic backups

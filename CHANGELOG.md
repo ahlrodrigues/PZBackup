@@ -3,6 +3,20 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org/).
 
+## [1.4.1] - 2026-10-20
+
+### Fixed
+- **Console spam on B42.** The character details and the danger check probed B41 method
+  names (`getPanic`, `getProfession`, `ProfessionFactory`) inside `pcall`, but Project
+  Zomboid logs every Lua error to `console.txt` even when it is caught, so the log filled
+  with stack traces every ~2 s.
+- Stat percentages (hunger, thirst, tiredness, panic) now use each stat's real range from
+  the game instead of guessing whether the value is a 0..1 fraction.
+
+### Changed
+- **B42 only.** The mod calls the B42 API directly; the B41 fallbacks and defensive probes
+  (stats, profession, mod options, UI, language, timestamps) were removed.
+
 ## [1.4.0] - 2026-10-18
 
 ### Added
@@ -185,6 +199,7 @@ First public release.
 - Installers for Linux (native and Flatpak Steam) and Windows 10/11.
 - In-game warning, with the repository address, when the script isn't installed.
 
+[1.4.1]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.4.1
 [1.4.0]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.4.0
 [1.3.0]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.3.0
 [1.2.0]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.2.0

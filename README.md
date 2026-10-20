@@ -5,7 +5,7 @@
 **Downloads:** <https://github.com/ahlrodrigues/PZBackup/releases> ·
 **Steam Workshop:** <https://steamcommunity.com/sharedfiles/filedetails/?id=3821180981> ·
 *Português:* [LEIAME.md](LEIAME.md)
-Version 1.4.0 · Mod ID `PZBackupAHLR` · Workshop ID `3821180981` · [MIT](LICENSE) license · Build 42
+Version 1.4.1 · Mod ID `PZBackupAHLR` · Workshop ID `3821180981` · [MIT](LICENSE) license · Build 42
 
 You spent three weeks building the perfect base. Double fence, farm, generator,
 enough canned beans to survive the apocalypse twice. Then you opened one door

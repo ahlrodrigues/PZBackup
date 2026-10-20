@@ -5,7 +5,7 @@
 **Downloads:** <https://github.com/ahlrodrigues/PZBackup/releases> ·
 **Steam Workshop:** <https://steamcommunity.com/sharedfiles/filedetails/?id=3821180981> ·
 *English:* [README.md](README.md)
-Versão 1.4.0 · Mod ID `PZBackupAHLR` · Workshop ID `3821180981` · Licença [MIT](LICENSE) · Build 42
+Versão 1.4.1 · Mod ID `PZBackupAHLR` · Workshop ID `3821180981` · Licença [MIT](LICENSE) · Build 42
 
 Você passou três semanas montando a base perfeita. Cerca dupla, horta, gerador,
 estoque de feijão enlatado pra sobreviver ao fim do mundo duas vezes. Aí abriu uma

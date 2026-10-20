@@ -1,5 +1,5 @@
 ﻿# pz-backup.ps1 — automatic and manual save backups for Project Zomboid (Windows)
-# Version 1.4.0 — https://github.com/ahlrodrigues/PZBackup — MIT License
+# Version 1.4.1 — https://github.com/ahlrodrigues/PZBackup — MIT License
 #
 # Usage (PowerShell):
 #   pz-backup.ps1 save        -> back up now
@@ -20,7 +20,7 @@
 
 param([string]$Acao = "", [int]$Numero = 1, [string]$Texto = "")
 
-$Versao = "1.4.0"                                # updated by tools/bump-version.sh
+$Versao = "1.4.1"                                # updated by tools/bump-version.sh
 
 # ---------------- Settings ----------------
 $Interval     = 5                                # minutes between automatic backups
