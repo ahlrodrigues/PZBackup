@@ -1,5 +1,5 @@
 ﻿# pz-backup.ps1 — automatic and manual save backups for Project Zomboid (Windows)
-# Version 1.4.1 — https://github.com/ahlrodrigues/PZBackup — MIT License
+# Version 1.5.0 — https://github.com/ahlrodrigues/PZBackup — MIT License
 #
 # Usage (PowerShell):
 #   pz-backup.ps1 save        -> back up now
@@ -20,12 +20,13 @@
 
 param([string]$Acao = "", [int]$Numero = 1, [string]$Texto = "")
 
-$Versao = "1.4.1"                                # updated by tools/bump-version.sh
+$Versao = "1.5.0"                                # updated by tools/bump-version.sh
 
 # ---------------- Settings ----------------
 $Interval     = 5                                # minutes between automatic backups
 $Keep         = 10                               # newest backups kept per world (pinned ones don't count)
-$KeepHourly   = 24                               # also keep 1 backup per hour of the last N hours (0 = off)
+$KeepHourly   = 26                               # also keep 1 backup per hour of the last N hours (0 = off)
+                                                 #   (a little over 24 so the "1d" quick restore finds one)
 $KeepGameDays = 14                               # also keep 1 backup per in-game day, last N game days (0 = off)
 $Hardlinks    = $true                            # incremental: unchanged files are hard links to the previous
                                                  #   backup (NTFS); $false = full copies
@@ -44,6 +45,10 @@ $RemoveDead   = ""                               # dead-character saves when the
                                                  #   "1" = always remove, "0" = never remove
 $Sound        = $true                            # $false = silent
 $Language     = ""                               # messages: "" = follow the mod's Language option; "pt" or "en"
+$Shortcuts    = @("5min", "10min", "1h", "1d")   # quick-restore entries in the game's Load list, per world:
+                                                 #   "<world>-BACKUP-1h" = newest backup at least 1 h older than
+                                                 #   the world's newest one (units: min, h, d; @() = off)
+$ShortcutDays = 7                                # ...only for worlds with a backup in the last N days
 # ------------------------------------------
 $SteamAppId = 108600                             # Project Zomboid on Steam
 $Processos = @("ProjectZomboid64", "ProjectZomboid32", "ProjectZomboid")
@@ -57,6 +62,7 @@ $InfoDir = Join-Path $Destino ".info"            # per-backup details (character
 $Pins = Join-Path $Destino ".pinned"             # pinned backups, one name per line
 $Mortes = Join-Path $Destino ".deaths"           # recorded deaths: "mode/world|unix time" per line
 $BuildIdArq = Join-Path $Destino ".buildid"      # last game build seen (Steam), for the update backup
+$MarcaAtalho = ".pzbackup_atalho"                # inside a quick-restore copy in Saves: the backup it came from
 $script:Adiado = $false
 $script:Origem = "MANUAL"
 $Utf8 = New-Object System.Text.UTF8Encoding($false)   # UTF-8 without BOM (easier for Lua)
@@ -126,6 +132,9 @@ function Save-Atual {
     Get-ChildItem $Saves -Directory | ForEach-Object { Get-ChildItem $_.FullName -Directory } |
         Sort-Object LastWriteTime -Descending | Select-Object -First 1
 }
+
+# Quick-restore copy made by the script (not a real world)?
+function Eh-Atalho([string]$Dir) { Test-Path -LiteralPath (Join-Path $Dir $MarcaAtalho) }
 
 # On Windows, death detection relies on the PZ Backup mod
 # (the notice is only valid if updated in the last 12 h)
@@ -399,6 +408,14 @@ function Espaco-Ok($Origem) {
 function Fazer-Backup([string]$Nota = "") {
     $origem = Save-Atual
     if (-not $origem) { Avisar (Msg "Nenhum save encontrado em $Saves" "No save found in $Saves") "erro"; return "falha" }
+    # Playing a quick-restore copy: its progress is thrown away, and backing up the
+    # real world instead would only push older backups out of the rotation
+    if (Eh-Atalho $origem.FullName) {
+        if ($script:Origem -ne "AUTO") {
+            Avisar (Msg "$($origem.Name) e um atalho de restauracao - backup nao feito" "$($origem.Name) is a quick-restore entry - backup not taken") "erro"
+        }
+        return "falha"
+    }
 
     $mundo = $origem.Name
     if ((Estado-Personagem) -eq "morto") {
@@ -440,6 +457,7 @@ function Aplicar-Retencao([string]$Modo, [string]$Mundo) {
         Sort-Object Name -Descending
     foreach ($b in $lista) {
         if ($fixados -contains $b.Name) { continue }
+        if (Alvo-De-Atalho $b.Name) { continue }   # a Load-list entry points to it (until the next refresh)
         $n++; $manter = $n -le $Keep
         $e = Backup-Epoch $b.Name
         $hora = ($b.Name -split "__")[-1]; if ($hora.Length -ge 13) { $hora = $hora.Substring(0, 13) }
@@ -511,6 +529,7 @@ function Verificar-Atualizacao {
         if (Test-Path -LiteralPath $Saves) {
             foreach ($w in (Get-ChildItem -LiteralPath $Saves -Directory | Where-Object { $_.Name -ne "Multiplayer" } |
                             ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -Directory })) {
+                if (Eh-Atalho $w.FullName) { continue }
                 [void](Copiar-Backup $w (Msg "antes da atualizacao $antigo -> $atual" "before update $antigo -> $atual") $true)
             }
         }
@@ -680,6 +699,90 @@ function Listar {
     }
 }
 
+# ---------------- Quick-restore entries in the game's Load list ----------------
+# For each world with a backup in the last $ShortcutDays days, full copies of a few
+# older backups go to Saves\<mode>\<world>-BACKUP-<offset> (offsets from $Shortcuts),
+# refreshed while the game is CLOSED (it reads the save list only on startup).
+# Loading one doesn't play it: the mod asks to restore that backup into the original
+# world. Listed for the mod in
+#   Zomboid\Lua\pzbackup_atalhos.txt   mode/folder|backup name|offset
+# Each copy holds $MarcaAtalho; folders without it are never replaced or removed.
+
+# "1h" -> 3600 (units: min, h, d); $null if invalid
+function Atalho-Seg([string]$A) {
+    if ($A -notmatch '^(\d+)(min|h|d)$') { return $null }
+    $n = [int]$Matches[1]
+    switch ($Matches[2]) { "min" { return $n * 60 } "h" { return $n * 3600 } default { return $n * 86400 } }
+}
+
+# Is this backup the source of a Load-list entry? (kept by the rotation until the next refresh)
+function Alvo-De-Atalho([string]$Nome) {
+    $arq = Join-Path $LuaDir "pzbackup_atalhos.txt"
+    if (-not (Test-Path -LiteralPath $arq)) { return $false }
+    return [bool](Select-String -LiteralPath $arq -SimpleMatch -Pattern "|$Nome|" -Quiet)
+}
+
+# (Re)creates the copy, unless it already holds that backup untouched
+# (loading it in the game writes to it)
+function Atalho-Copiar([string]$Pasta, [string]$Nome) {
+    $marca = Join-Path $Pasta $MarcaAtalho
+    if (Test-Path -LiteralPath $marca) {
+        $quando = (Get-Item -LiteralPath $marca -Force).LastWriteTime
+        $antes = (Get-Content -LiteralPath $marca -TotalCount 1).Trim()
+        $mexido = Get-ChildItem -LiteralPath $Pasta -Recurse -File -Force |
+            Where-Object { $_.Name -ne $MarcaAtalho -and $_.LastWriteTime -gt $quando } | Select-Object -First 1
+        if ($antes -eq $Nome -and -not $mexido) { return $true }
+    } elseif (Test-Path -LiteralPath $Pasta) {
+        return $false                                  # a real world with that name: never touched
+    }
+    Remove-Item -LiteralPath $Pasta -Recurse -Force -ErrorAction SilentlyContinue
+    # Full copy (Copy-Item doesn't keep the hard links to the other backups): the game can write to it
+    try { Copy-Item -LiteralPath (Join-Path $Destino $Nome) -Destination $Pasta -Recurse -ErrorAction Stop }
+    catch { Remove-Item -LiteralPath $Pasta -Recurse -Force -ErrorAction SilentlyContinue; return $false }
+    [IO.File]::WriteAllText($marca, "$Nome`n", $Utf8)
+    # sorts below the real world
+    (Get-Item -LiteralPath $Pasta).LastWriteTime = [DateTimeOffset]::FromUnixTimeSeconds((Backup-Epoch $Nome)).LocalDateTime
+    return $true
+}
+
+function Atualizar-Atalhos {
+    if (-not (Test-Path $LuaDir) -or -not (Test-Path $Saves)) { return }
+    $linhas = @(); $querer = @{}
+    $limite = (Agora-Unix) - $ShortcutDays * 86400
+    $livre = Livre-MB
+    # Low on disk space: no copies (the old ones are removed below)
+    if ($Shortcuts.Count -and ($null -eq $livre -or $livre -ge $MinFreeMB)) {
+        $mundos = Get-ChildItem -LiteralPath $Destino -Directory | Where-Object { $_.Name -like "*__*__*" } |
+            Group-Object { $_.Name.Substring(0, $_.Name.LastIndexOf("__")) }
+        foreach ($g in $mundos) {
+            $modo = ($g.Name -split "__")[0]; $mundo = $g.Name.Substring($modo.Length + 2)
+            if ($modo -eq "Multiplayer") { continue }
+            $bs = @($g.Group | Sort-Object Name -Descending |
+                    ForEach-Object { [pscustomobject]@{ Nome = $_.Name; E = Backup-Epoch $_.Name } })
+            if ($bs.Count -lt 2 -or $bs[0].E -lt $limite) { continue }
+            $ref = $bs[0].E; $ant = ""
+            foreach ($a in $Shortcuts) {
+                $seg = Atalho-Seg $a; if ($null -eq $seg) { continue }
+                # newest backup at least <offset> older than the world's newest one
+                $alvo = $bs | Where-Object { $_.E -le ($ref - $seg) } | Select-Object -First 1
+                if (-not $alvo -or $alvo.Nome -eq $ant) { continue }   # same backup as the shorter offset
+                $ant = $alvo.Nome
+                $pasta = Join-Path (Join-Path $Saves $modo) "$mundo-BACKUP-$a"
+                if (-not (Atalho-Copiar $pasta $alvo.Nome)) { continue }
+                $querer[$pasta] = $true
+                $linhas += "$modo/$mundo-BACKUP-$a|$($alvo.Nome)|$a"
+            }
+        }
+    }
+    foreach ($w in (Get-ChildItem -LiteralPath $Saves -Directory | ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -Directory })) {
+        if ((Eh-Atalho $w.FullName) -and -not $querer.ContainsKey($w.FullName)) {
+            Remove-Item -LiteralPath $w.FullName -Recurse -Force
+        }
+    }
+    $texto = if ($linhas.Count) { ($linhas -join "`n") + "`n" } else { "" }
+    [IO.File]::WriteAllText((Join-Path $LuaDir "pzbackup_atalhos.txt"), $texto, $Utf8)
+}
+
 # Is the "remove dead-character saves" option on?
 function Apagar-Mortos-Ativo {
     if ($RemoveDead -eq "1") { return $true }
@@ -709,6 +812,7 @@ function Limpar-Mortos {
     New-Item -ItemType Directory -Force -Path $subst | Out-Null
     foreach ($w in $candidatos) {
         if (-not (Test-Path $w)) { continue }
+        if (Eh-Atalho $w) { continue }                 # quick-restore copies are handled by Atualizar-Atalhos
         $m = Split-Path (Split-Path $w -Parent) -Leaf
         Move-Item $w (Join-Path $subst "${m}__${mundo}__$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss')")
         Avisar (Msg "Save de personagem morto removido de Carregar: $mundo (guardado em replaced)" "Dead character's save removed from Load: $mundo (kept in replaced)")
@@ -806,7 +910,10 @@ function Modo-Jogo {
 
     while ($true) {
         $script:Origem = "AUTO"
-        if (-not (Jogo-Aberto)) { Start-Process "steam://rungameid/$SteamAppId" }
+        if (-not (Jogo-Aberto)) {
+            Atualizar-Atalhos                          # game still closed: it reads the Load list on startup
+            Start-Process "steam://rungameid/$SteamAppId"
+        }
         if (-not (Esperar-Jogo)) {
             Avisar (Msg "O jogo nao abriu em 3 minutos - backup automatico cancelado" "The game didn't start within 3 minutes - automatic backup cancelled") "erro"; return
         }

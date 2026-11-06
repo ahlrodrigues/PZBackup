@@ -1,6 +1,6 @@
 #!/bin/bash
 # pz-backup.sh — automatic and manual save backups for Project Zomboid (Linux)
-# Version 1.4.1 — https://github.com/ahlrodrigues/PZBackup — MIT License
+# Version 1.5.0 — https://github.com/ahlrodrigues/PZBackup — MIT License
 #
 # Requires: bash. Recommended: python3 (beeps and players.db death check)
 #           and paplay/pw-play/aplay (sound). Without python3 backups still work.
@@ -22,12 +22,13 @@
 #                      (also serves the PZ Backup mod's keys and restore window)
 #   Older Portuguese command names still work: jogo = game, limpar = clean.
 
-VERSION="1.4.1"                           # updated by tools/bump-version.sh
+VERSION="1.5.0"                           # updated by tools/bump-version.sh
 
 # ---------------- Settings ----------------
 INTERVAL=5                                # minutes between automatic backups
 KEEP=10                                   # newest backups kept per world (pinned ones don't count)
-KEEP_HOURLY=24                            # also keep 1 backup per hour of the last N hours (0 = off)
+KEEP_HOURLY=26                            # also keep 1 backup per hour of the last N hours (0 = off)
+                                          #   (a little over 24 so the "1d" quick restore finds one)
 KEEP_GAME_DAYS=14                         # also keep 1 backup per in-game day, last N game days (0 = off)
 HARDLINKS=1                               # 1 = incremental: unchanged files are hard links to the
                                           #     previous backup (needs rsync), 0 = full copies
@@ -48,6 +49,10 @@ SOUND=1                                   # 1 = beep on backup/restore, 0 = sile
 SOUND_OK=""                               # optional: your own success .wav
 SOUND_ERROR=""                            # optional: your own error .wav
 LANGUAGE=""                               # messages: empty = follow the mod's Language option; "pt" or "en"
+SHORTCUTS="5min 10min 1h 1d"              # quick-restore entries in the game's Load list, per world:
+                                          #   "<world>-BACKUP-1h" = newest backup at least 1 h older than
+                                          #   the world's newest one (units: min, h, d; empty = off)
+SHORTCUT_DAYS=7                           # ...only for worlds with a backup in the last N days
 # ------------------------------------------
 
 # Game folder: detects native Steam or Flatpak Steam automatically.
@@ -72,6 +77,7 @@ INFO_DIR="$DESTINO/.info"                 # per-backup details (character, days,
 PINS="$DESTINO/.pinned"                   # pinned backups, one name per line
 MORTES="$DESTINO/.deaths"                 # recorded deaths: "mode/world|unix time" per line
 BUILDID_ARQ="$DESTINO/.buildid"           # last game build seen (Steam), for the update backup
+MARCA_ATALHO=".pzbackup_atalho"           # inside a quick-restore copy in Saves: the backup it came from
 ORIGEM="MANUAL"                           # log tag: MANUAL, MOD, AUTO, FINAL, RESTAURO
 
 # Generates the beeps (.wav) once, needing nothing but python3
@@ -160,6 +166,9 @@ avisar() {
 save_atual() {
   ls -dt "$SAVES"/*/*/ 2>/dev/null | head -n1 | sed 's:/$::'
 }
+
+# Quick-restore copy made by the script (not a real world)?
+eh_atalho() { [ -f "$1/$MARCA_ATALHO" ]; }
 
 # Checks the save's players.db to see if the character is dead.
 # Looks for any table with an isDead column (the game's format).
@@ -420,6 +429,12 @@ fazer_backup() {
   local origem nota="${1:-}" perigo
   origem=$(save_atual)
   [ -z "$origem" ] && { avisar "$(msg "Nenhum save encontrado em $SAVES" "No save found in $SAVES")" erro; return 1; }
+  # Playing a quick-restore copy: its progress is thrown away, and backing up the
+  # real world instead would only push older backups out of the rotation
+  if eh_atalho "$origem"; then
+    [ "$ORIGEM" = AUTO ] || avisar "$(msg "$(basename "$origem") é um atalho de restauração — backup não feito" "$(basename "$origem") is a quick-restore entry — backup not taken")" erro
+    return 1
+  fi
 
   # Don't bury the good backups under a dead character
   if [ "$(estado_personagem "$origem")" = morto ]; then
@@ -472,6 +487,7 @@ aplicar_retencao() {
   while IFS= read -r d; do
     nome=${d##*/}
     fixado "$nome" && continue
+    alvo_de_atalho "$nome" && continue    # a Load-list entry points to it (until the next refresh)
     n=$((n + 1))
     b=$(backup_epoch "$nome")
     hora=${nome##*__}; hora=${hora:0:13}
@@ -537,6 +553,7 @@ verificar_atualizacao() {
     for w in "$SAVES"/*/*/; do
       w=${w%/}; [ -d "$w" ] || continue
       [ "$(basename "$(dirname "$w")")" = Multiplayer ] && continue
+      eh_atalho "$w" && continue
       copiar_backup "$w" "$(msg "antes da atualização $antigo -> $atual" "before update $antigo -> $atual")" 1 && n=$((n + 1))
     done
   fi
@@ -677,6 +694,86 @@ atualizar_lista() {
   done > "$tmp" && mv -f "$tmp" "$LUA_DIR/pzbackup_lista.txt" && mv -f "$tmpd" "$LUA_DIR/pzbackup_detalhes.txt"
 }
 
+# ---------------- Quick-restore entries in the game's Load list ----------------
+# For each world with a backup in the last SHORTCUT_DAYS days, full copies of a few
+# older backups go to Saves/<mode>/<world>-BACKUP-<offset> (offsets from SHORTCUTS),
+# refreshed while the game is CLOSED (it reads the save list only on startup).
+# Loading one doesn't play it: the mod asks to restore that backup into the original
+# world. Listed for the mod in
+#   Zomboid/Lua/pzbackup_atalhos.txt   mode/folder|backup name|offset
+# Each copy holds MARCA_ATALHO; folders without it are never replaced or removed.
+
+# "1h" -> 3600 (units: min, h, d); empty if invalid
+atalho_seg() {
+  local n=${1%%[!0-9]*} u
+  u=${1#"$n"}
+  [ -n "$n" ] || return 0
+  case "$u" in min) echo $((n * 60)) ;; h) echo $((n * 3600)) ;; d) echo $((n * 86400)) ;; esac
+}
+
+# Is this backup the source of a Load-list entry? (kept by the rotation until the next refresh)
+alvo_de_atalho() {
+  grep -qF -- "|$1|" "$LUA_DIR/pzbackup_atalhos.txt" 2>/dev/null
+}
+
+# atalho_copiar <folder> <backup name>: (re)creates the copy, unless it already holds
+# that backup untouched (loading it in the game writes to it)
+atalho_copiar() {
+  local pasta="$1" nome="$2" marca="$1/$MARCA_ATALHO"
+  if [ -f "$marca" ]; then
+    [ "$(head -n1 "$marca")" = "$nome" ] && [ -z "$(find "$pasta" -type f -newer "$marca" -print -quit)" ] && return 0
+  elif [ -e "$pasta" ]; then
+    return 1                              # a real world with that name: never touched
+  fi
+  rm -rf -- "$pasta"
+  # Full copy: cp -a doesn't keep the hard links to the other backups, so the game can write to it
+  cp -a "$DESTINO/$nome" "$pasta" || { rm -rf -- "$pasta"; return 1; }
+  echo "$nome" > "$marca"
+  touch -d "@$(backup_epoch "$nome")" "$pasta"   # sorts below the real world
+}
+
+atualizar_atalhos() {
+  [ -d "$LUA_DIR" ] && [ -d "$SAVES" ] || return 0
+  local tmp="$LUA_DIR/.pzbackup_atalhos.tmp" limite livre chave modo mundo d i a seg ref alvo ant pasta w
+  local -a nomes epocas
+  local -A querer=()
+  limite=$(( $(date +%s) - SHORTCUT_DAYS * 86400 ))
+  livre=$(livre_mb "$SAVES")
+  : > "$tmp"
+  # Low on disk space: no copies (the old ones are removed below)
+  if [ -n "$SHORTCUTS" ] && [ "${livre:-$MIN_FREE_MB}" -ge "$MIN_FREE_MB" ]; then
+    while IFS= read -r chave; do
+      modo=${chave%%__*}; mundo=${chave#*__}
+      [ "$modo" = Multiplayer ] && continue
+      nomes=(); epocas=()
+      while IFS= read -r d; do
+        nomes+=("${d##*/}"); epocas+=("$(backup_epoch "${d##*/}")")
+      done < <(ls -d "$DESTINO/${chave}__"* 2>/dev/null | sort -r)
+      [ ${#nomes[@]} -gt 1 ] && [ "${epocas[0]}" -ge "$limite" ] || continue
+      ref=${epocas[0]}; ant=""
+      for a in $SHORTCUTS; do
+        seg=$(atalho_seg "$a"); [ -n "$seg" ] || continue
+        # newest backup at least <offset> older than the world's newest one
+        alvo=""
+        for i in "${!nomes[@]}"; do
+          [ "${epocas[$i]}" -le $((ref - seg)) ] && { alvo=${nomes[$i]}; break; }
+        done
+        [ -n "$alvo" ] && [ "$alvo" != "$ant" ] || continue   # same backup as the shorter offset
+        ant=$alvo
+        pasta="$SAVES/$modo/${mundo}-BACKUP-$a"
+        atalho_copiar "$pasta" "$alvo" || continue
+        querer[$pasta]=1
+        echo "$modo/${mundo}-BACKUP-$a|$alvo|$a" >> "$tmp"
+      done
+    done < <(for d in "$DESTINO"/*__*__*; do [ -d "$d" ] && { d=${d##*/}; echo "${d%__*}"; }; done | sort -u)
+  fi
+  for w in "$SAVES"/*/*/; do
+    w=${w%/}
+    eh_atalho "$w" && [ -z "${querer[$w]:-}" ] && rm -rf -- "$w"
+  done
+  mv -f "$tmp" "$LUA_DIR/pzbackup_atalhos.txt"
+}
+
 # Mods that differ between a backup and the current game (from the mod's last info)
 # Output: lines "- id" (in the backup, not active now) and "+ id" (active now, not in the backup)
 diferenca_mods() {
@@ -729,6 +826,7 @@ limpar_mortos() {
     w=${w%/}; [ -d "$w" ] || continue
     modo=$(basename "$(dirname "$w")"); mundo=$(basename "$w")
     [ "$modo" = Multiplayer ] && continue  # server saves: never touched
+    eh_atalho "$w" && continue            # quick-restore copies are handled by atualizar_atalhos
     estado=$(estado_db "$w")
     if [ "$estado" = morto ] || { [ "$estado" = desconhecido ] && [ -n "$mundo_mod" ] &&
          { [ "$mundo_mod" = "$modo/$mundo" ] || [ "$mundo_mod" = "/$mundo" ]; }; }; then
@@ -833,6 +931,7 @@ case "$1" in
            while true; do
              ORIGEM="AUTO"
              atualizar_lista
+             atualizar_atalhos             # game still closed: it reads the Load list on startup
              ( trap 'kill $SP 2>/dev/null; exit 0' TERM
                while true; do
                  sleep $((INTERVAL * 60)) & SP=$!; wait $SP

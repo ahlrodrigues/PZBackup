@@ -5,7 +5,7 @@
 **Downloads:** <https://github.com/ahlrodrigues/PZBackup/releases> ·
 **Steam Workshop:** <https://steamcommunity.com/sharedfiles/filedetails/?id=3821180981> ·
 *English:* [README.md](README.md)
-Versão 1.4.1 · Mod ID `PZBackupAHLR` · Workshop ID `3821180981` · Licença [MIT](LICENSE) · Build 42
+Versão 1.5.0 · Mod ID `PZBackupAHLR` · Workshop ID `3821180981` · Licença [MIT](LICENSE) · Build 42
 
 Você passou três semanas montando a base perfeita. Cerca dupla, horta, gerador,
 estoque de feijão enlatado pra sobreviver ao fim do mundo duas vezes. Aí abriu uma
@@ -19,6 +19,12 @@ mão, sem chorar no Discord.
 > "Mas isso não é trapaça?" — É o *seu* jogo. Joga do jeito que te faz feliz.
 > E se quiser hardcore raiz, é só desligar a restauração automática nas opções. 😉
 
+> 🆕 **Novo na 1.5: volte no tempo com um clique.** A janela do F9 ganhou os botões
+> **-5 min**, **-10 min**, **-1 h** e **-1 dia**, e a própria lista **Carregar** do jogo
+> agora mostra `<mundo>-BACKUP-5min`, `-10min`, `-1h`, `-1d` do lado de cada mundo recente.
+> Carregou, disse *Sim*, e você está de volta naquele momento — sem caçar janela, sem rolar lista.
+> [Como funciona ↓](#%EF%B8%8F-direto-da-lista-carregar)
+
 ---
 
 ## O que ele faz
@@ -28,6 +34,7 @@ mão, sem chorar no Discord.
 | 🕐 **Backup automático** | A cada 5 min, só enquanto o jogo está aberto |
 | ⌨️ **Backup na hora** | **F8** dentro do jogo |
 | ⏪ **Restaurar pelo jogo** | **F9** (ou *Opções → Mods → PZ Backup*): escolhe o backup, o jogo fecha, restaura e reabre sozinho |
+| ⏮️ **Voltar 5 min, 10 min, 1 h, 1 dia** 🆕 | Um clique na janela do F9 — ou direto da lista *Carregar* do jogo (`<mundo>-BACKUP-1h`) |
 | 💀 **Morreu? Volta!** | Contagem de 10 s e o **último backup seguro** daquele mundo é restaurado — pulando os mordidos e os feitos segundos antes da morte. Depois é só **Continuar** |
 | ⚠️ **Nada de backup no meio da briga** | O backup automático espera enquanto tem zumbi em cima, pânico, sangramento, fogo ou pouca vida — e acontece assim que acalma |
 | 🎨 **Lista colorida** | 🔴 mordido · 🟡 perigo / logo antes de uma morte · 🟢 normal · ⚪ sem detalhes — com legenda na janela |
@@ -39,7 +46,7 @@ mão, sem chorar no Discord.
 | 📌 **Fixe os bons** | Backups fixados nunca saem da rotação — aquele save "antes de Louisville" fica pra sempre |
 | 🔎 **Saiba o que está restaurando** | O F9 mostra, de cada backup: personagem, saúde e ferimentos (com **MORDIDO!** em vermelho), local, fome/sede/cansaço/pânico, habilidades e mais |
 | 🔌 **Checagem de mods** | Avisa antes de restaurar se os mods do backup são diferentes dos ativos agora — e diz quais |
-| 🗂️ **Histórico esperto** | 10 mais recentes por mundo + 1 por hora (últimas 24 h) + 1 por dia de jogo (últimos 14) + os fixados + 5 saves substituídos |
+| 🗂️ **Histórico esperto** | 10 mais recentes por mundo + 1 por hora (últimas 26 h) + 1 por dia de jogo (últimos 14) + os fixados + 5 saves substituídos |
 | 💾 **Incremental** | Arquivos que não mudaram são compartilhados entre backups (hard links): cada backup custa só o que mudou |
 | 🛡️ **Cópias seguras** | Espera o jogo terminar de gravar, confere cada cópia, fixa um backup de todos os mundos antes de atualização do jogo, avisa quando o disco está acabando |
 | 🔊 **Bipes** | Dois bipes subindo = deu bom. Dois descendo = deu ruim |
@@ -175,13 +182,35 @@ passar: se você apertou, é porque quer.
 ### ⏪ Restaurar escolhendo o backup
 
 1. **F9** (ou *Opções → Mods → PZ Backup → Restaurar backup...*).
-2. Escolha na lista — o **1 é o mais recente**. Embaixo da lista aparece como você estava
-   naquela hora (veja a tabela abaixo), inclusive se os **mods** batem com os de agora.
+2. Escolha na lista — o **1 é o mais recente** — ou use os botões **Voltar**: **-5 min**,
+   **-10 min**, **-1 h**, **-1 dia** selecionam o backup mais novo com pelo menos esse tempo
+   a menos que o mais recente do mundo (cinza = não tem backup tão antigo). Embaixo da lista
+   aparece como você estava naquela hora (veja a tabela abaixo), inclusive se os **mods**
+   batem com os de agora.
 3. Clique em **Restaurar** e confirme. O jogo fecha, restaura e reabre sozinho.
 4. Em *Carregar*, o save restaurado está no topo.
 
 **Por que o jogo precisa fechar?** Ele só lê a lista de saves quando abre. Restaurar
 com ele aberto faria o save sumir da lista — e ninguém quer isso.
+
+#### ⏮️ Direto da lista *Carregar*
+
+Pra cada mundo jogado nos últimos 7 dias, a lista *Carregar* também mostra até quatro
+entradas do lado do mundo de verdade:
+
+| Entrada | O que é |
+|---|---|
+| `2026-10-31_11-50-11-BACKUP-5min` | o backup mais novo com pelo menos 5 min a menos que o mais recente do mundo |
+| `...-BACKUP-10min`, `...-BACKUP-1h`, `...-BACKUP-1d` | igual, 10 min / 1 h / 1 dia atrás |
+
+Carregou uma? Uma janela pergunta: **restaurar este momento no mundo original?** *Sim*
+funciona igual ao F9 (o jogo fecha, restaura e reabre; depois é só *Continuar*). *Não*
+deixa você dar uma olhada, mas nada feito ali é guardado: a entrada é recriada na próxima
+vez que o jogo abrir. O F8 não faz backup dentro de uma entrada.
+
+As entradas são cópias completas (o jogo pode gravar nelas), atualizadas com o jogo
+fechado, então custam umas 4× o tamanho do save por mundo recente. Entradas que cairiam no
+mesmo backup aparecem uma vez só. Ajuste ou desligue em `SHORTCUTS` / `$Shortcuts`.
 
 #### 🎨 Cores na lista
 
@@ -293,7 +322,7 @@ Liga/desliga: *Opções → Mods → PZ Backup → "Adiar o backup automatico du
 **O que fica guardado**, por mundo (os fixados sempre ficam e não contam):
 
 1. os **10 mais recentes**;
-2. o mais novo de **cada hora** das últimas **24 horas**;
+2. o mais novo de **cada hora** das últimas **26 horas**;
 3. o mais novo de **cada dia de jogo** dos últimos **14 dias de jogo**.
 
 Assim você tem detalhe fino dos últimos minutos e ainda acha algo de ontem e de uma
@@ -411,7 +440,7 @@ das opções mudam depois de reiniciar o jogo.
 |---|---|---|
 | `INTERVAL` / `$Interval` | 5 | Minutos entre backups automáticos |
 | `KEEP` / `$Keep` | 10 | Backups mais recentes guardados por mundo (os fixados são extras) |
-| `KEEP_HOURLY` / `$KeepHourly` | 24 | Também 1 por hora das últimas N horas (`0` = desliga) |
+| `KEEP_HOURLY` / `$KeepHourly` | 26 | Também 1 por hora das últimas N horas (`0` = desliga) |
 | `KEEP_GAME_DAYS` / `$KeepGameDays` | 14 | Também 1 por dia de jogo, últimos N dias de jogo (`0` = desliga) |
 | `HARDLINKS` / `$Hardlinks` | ligado | Backups incrementais (hard links) |
 | `MIN_FREE_MB` / `$MinFreeMB` | 1024 | Backup automático pausa abaixo deste espaço livre |
@@ -425,6 +454,8 @@ das opções mudam depois de reiniciar o jogo.
 | `SOUND` / `$Sound` | ligado | Bipes |
 | `REMOVE_DEAD` / `$RemoveDead` | vazio | Vazio = segue o mod; `1` sempre; `0` nunca |
 | `LANGUAGE` / `$Language` | vazio | Vazio = segue a opção *Idioma* do mod; `pt` ou `en` força |
+| `SHORTCUTS` / `$Shortcuts` | `5min 10min 1h 1d` | Entradas na lista *Carregar* por mundo (unidades `min`, `h`, `d`; vazio = desliga) |
+| `SHORTCUT_DAYS` / `$ShortcutDays` | 7 | Só pra mundos com backup nos últimos N dias |
 
 ## Onde ficam as coisas
 
@@ -476,6 +507,7 @@ Por arquivos de texto em `Zomboid/Lua/`:
 | `pzbackup_info.txt` | mod → script | tudo o que aparece no painel de detalhes mais os mods ativos, um `chave=valor` por linha; o script copia pra `BackupsSaves/.info/<backup>.txt` |
 | `pzbackup_fixar.txt` | mod → script | comandos, um por linha: `pin <backup>`, `unpin <backup>`, `note <backup>\|<texto>` |
 | `pzbackup_detalhes.txt` | script → mod | `nome\|fixo\|chave=valor\|chave=valor...` por backup (o script repassa todos os campos, então campos novos só precisam de atualização do mod) |
+| `pzbackup_atalhos.txt` | script → mod | entradas da lista *Carregar*: `modo/pasta\|backup\|salto` |
 
 O `pzbackup_lista.txt` mantém o formato antigo `nome|rótulo` e os detalhes ficam num
 arquivo separado, então o script v1.4 funciona com o mod v1.3 (e vice-versa — só não

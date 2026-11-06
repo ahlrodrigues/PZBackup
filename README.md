@@ -5,7 +5,7 @@
 **Downloads:** <https://github.com/ahlrodrigues/PZBackup/releases> ·
 **Steam Workshop:** <https://steamcommunity.com/sharedfiles/filedetails/?id=3821180981> ·
 *Português:* [LEIAME.md](LEIAME.md)
-Version 1.4.1 · Mod ID `PZBackupAHLR` · Workshop ID `3821180981` · [MIT](LICENSE) license · Build 42
+Version 1.5.0 · Mod ID `PZBackupAHLR` · Workshop ID `3821180981` · [MIT](LICENSE) license · Build 42
 
 You spent three weeks building the perfect base. Double fence, farm, generator,
 enough canned beans to survive the apocalypse twice. Then you opened one door
@@ -19,6 +19,12 @@ on Discord.
 > "Isn't that cheating?" — It's *your* game. Play it however makes you happy.
 > Want it hardcore? Turn auto-restore off in the options. 😉
 
+> 🆕 **New in 1.5: go back in time with one click.** The F9 window got **-5 min**,
+> **-10 min**, **-1 h** and **-1 day** buttons, and the game's own **Load** list now shows
+> `<world>-BACKUP-5min`, `-10min`, `-1h`, `-1d` next to each recent world. Load one, say
+> *Yes*, and you're back at that moment — no window hunting, no list scrolling.
+> [How it works ↓](#%EF%B8%8F-straight-from-the-load-list)
+
 ---
 
 ## What it does
@@ -28,6 +34,7 @@ on Discord.
 | 🕐 **Automatic backup** | Every 5 min, only while the game is running |
 | ⌨️ **Backup right now** | **F8** in game |
 | ⏪ **Restore from the game** | **F9** (or *Options → Mods → PZ Backup*): pick a backup, the game closes, restores and reopens by itself |
+| ⏮️ **Go back 5 min, 10 min, 1 h, 1 day** 🆕 | One click in the F9 window — or straight from the game's *Load* list (`<world>-BACKUP-1h`) |
 | 💀 **Died? Undo!** | 10 s countdown, then the **last safe backup** of that world is restored — skipping bitten backups and the ones taken seconds before the death. Then just **Continue** |
 | ⚠️ **No backups mid-fight** | Automatic backups wait while zombies are on you, you panic, bleed, burn or are nearly dead — and happen as soon as it calms down |
 | 🎨 **Colored list** | 🔴 bitten · 🟡 danger / right before a death · 🟢 normal · ⚪ no details — with a legend in the window |
@@ -39,7 +46,7 @@ on Discord.
 | 📌 **Pin the good ones** | Pinned backups are never rotated out — your "before Louisville" save stays forever |
 | 🔎 **Know what you're restoring** | F9 shows, for each backup: character, health and wounds (with a red **BITTEN!**), location, hunger/thirst/tiredness/panic, skills and more |
 | 🔌 **Mod check** | Warns before restoring if the backup's mods differ from the ones active now — and names them |
-| 🗂️ **Smart history** | 10 newest per world + 1 per hour (last 24 h) + 1 per in-game day (last 14) + pinned ones + 5 replaced saves |
+| 🗂️ **Smart history** | 10 newest per world + 1 per hour (last 26 h) + 1 per in-game day (last 14) + pinned ones + 5 replaced saves |
 | 💾 **Incremental** | Unchanged files are shared between backups (hard links): each backup costs only what changed |
 | 🛡️ **Safe copies** | Waits for the game to finish writing, checks every copy, pins a backup of every world before a game update, warns when disk space runs low |
 | 🔊 **Beeps** | Two rising beeps = all good. Two falling = something's off |
@@ -172,13 +179,34 @@ if you pressed it, you meant it.
 ### ⏪ Restore a backup of your choice
 
 1. **F9** (or *Options → Mods → PZ Backup → Restore a backup...*).
-2. Pick one — **#1 is the newest**. Below the list you see who you were back then
-   (see the table below), including whether the **mods** match the ones you have on now.
+2. Pick one — **#1 is the newest** — or use the **Go back** buttons: **-5 min**,
+   **-10 min**, **-1 h**, **-1 day** select the newest backup at least that much older than
+   the world's newest one (grey = no backup that old). Below the list you see who you were
+   back then (see the table below), including whether the **mods** match the ones you have on now.
 3. Click **Restore** and confirm. The game closes, restores and reopens by itself.
 4. In *Load*, the restored save is at the top.
 
 **Why does the game have to close?** It only reads the save list on startup.
 Restoring while it's open would make the save vanish from the list — not the vibe.
+
+#### ⏮️ Straight from the *Load* list
+
+For each world played in the last 7 days, the *Load* list also shows up to four entries
+next to the real world:
+
+| Entry | What it is |
+|---|---|
+| `2026-10-31_11-50-11-BACKUP-5min` | the newest backup at least 5 min older than the world's newest one |
+| `...-BACKUP-10min`, `...-BACKUP-1h`, `...-BACKUP-1d` | same, 10 min / 1 h / 1 day back |
+
+Load one and a window asks: **restore this moment into the original world?** *Yes* works
+like F9 (the game closes, restores and reopens; then click *Continue*). *No* lets you look
+around, but nothing done there is kept: the entry is recreated the next time the game starts.
+F8 doesn't back up inside an entry.
+
+The entries are full copies (the game may write to them), refreshed while the game is
+closed, so they cost about 4× the save size per recent world. Entries pointing at the
+same backup show only once. Change or turn them off with `SHORTCUTS` / `$Shortcuts`.
 
 #### 🎨 Colors in the list
 
@@ -290,7 +318,7 @@ Toggle: *Options → Mods → PZ Backup → "Postpone automatic backups while in
 **What's kept**, per world (pinned ones are always kept and don't count):
 
 1. the **10 newest**;
-2. the newest of **each hour** of the last **24 hours**;
+2. the newest of **each hour** of the last **26 hours**;
 3. the newest of **each in-game day** of the last **14 game days**.
 
 So you have fine detail for the last minutes and still have something from yesterday
@@ -408,7 +436,7 @@ names themselves switch after a game restart.
 |---|---|---|
 | `INTERVAL` / `$Interval` | 5 | Minutes between automatic backups |
 | `KEEP` / `$Keep` | 10 | Newest backups kept per world (pinned ones are extra) |
-| `KEEP_HOURLY` / `$KeepHourly` | 24 | Also 1 per hour of the last N hours (`0` = off) |
+| `KEEP_HOURLY` / `$KeepHourly` | 26 | Also 1 per hour of the last N hours (`0` = off) |
 | `KEEP_GAME_DAYS` / `$KeepGameDays` | 14 | Also 1 per in-game day, last N game days (`0` = off) |
 | `HARDLINKS` / `$Hardlinks` | on | Incremental backups (hard links) |
 | `MIN_FREE_MB` / `$MinFreeMB` | 1024 | Automatic backups pause below this free space |
@@ -422,6 +450,8 @@ names themselves switch after a game restart.
 | `SOUND` / `$Sound` | on | Beeps |
 | `REMOVE_DEAD` / `$RemoveDead` | empty | Empty = follow the mod; `1` always; `0` never |
 | `LANGUAGE` / `$Language` | empty | Empty = follow the mod's *Language* option; `pt` or `en` to force |
+| `SHORTCUTS` / `$Shortcuts` | `5min 10min 1h 1d` | *Load*-list entries per world (units `min`, `h`, `d`; empty = off) |
+| `SHORTCUT_DAYS` / `$ShortcutDays` | 7 | Only for worlds with a backup in the last N days |
 
 ## Where things live
 
@@ -475,6 +505,7 @@ so renaming them would break mixed versions.
 | `pzbackup_info.txt` | mod → script | everything in the details panel plus active mods, one `key=value` per line; the script copies it to `BackupsSaves/.info/<backup>.txt` |
 | `pzbackup_fixar.txt` | mod → script | commands, one per line: `pin <backup>`, `unpin <backup>`, `note <backup>\|<text>` |
 | `pzbackup_detalhes.txt` | script → mod | `name\|pinned\|key=value\|key=value...` per backup (the script passes every field through, so new fields only need a mod update) |
+| `pzbackup_atalhos.txt` | script → mod | *Load*-list entries: `mode/folder\|backup name\|offset` |
 
 `pzbackup_lista.txt` keeps its old `name|label` format and the details live in a separate
 file, so a v1.4 script still works with a v1.3 mod (and vice versa — you just don't get

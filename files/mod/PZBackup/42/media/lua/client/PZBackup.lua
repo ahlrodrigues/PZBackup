@@ -21,6 +21,8 @@
     pzbackup_fixar.txt      (mod -> script)  commands, one per line (v1.4+):
                                              "pin <name>", "unpin <name>", "note <name>|<text>"
     pzbackup_detalhes.txt   (script -> mod)  per-backup details: name|pinned|key=value|key=value...
+    pzbackup_atalhos.txt    (script -> mod)  quick-restore entries in the Load list (v1.5+):
+                                             "mode/folder|backup name|offset" per line
 
   The script must be running in "game" mode.
 ]]
@@ -38,6 +40,7 @@ PZBackup.ARQ_INFO      = "pzbackup_info.txt"
 PZBackup.ARQ_FIXAR     = "pzbackup_fixar.txt"
 PZBackup.ARQ_DETALHES  = "pzbackup_detalhes.txt"
 PZBackup.ARQ_PERIGO    = "pzbackup_perigo.txt"
+PZBackup.ARQ_ATALHOS   = "pzbackup_atalhos.txt"
 PZBackup.URL           = "github.com/ahlrodrigues/PZBackup"   -- where to get the script
 
 local TECLA_BACKUP_PADRAO    = Keyboard.KEY_F8
@@ -478,6 +481,10 @@ local function pedirBackup(nota)
         PZBackup.mostrar(PZBackup.T("msg_morto_bloqueado"), true)
         return
     end
+    if PZBackup.atalhoAtual() then
+        PZBackup.mostrar(PZBackup.T("atalho_sem_backup"), true)
+        return
+    end
     if not PZBackup.scriptAtivo() then
         PZBackup.mostrar(PZBackup.T("msg_script_parado", PZBackup.URL), true)
         return
@@ -530,6 +537,17 @@ function PZBackup.mundoAtual()
 end
 
 local mundoAtual = PZBackup.mundoAtual
+
+-- Quick-restore entry loaded from the Load list (pzbackup_atalhos.txt)?
+-- Returns the backup name and offset ("1h"), or nil for a real world
+function PZBackup.atalhoAtual()
+    local mm = mundoAtual()
+    for _, l in ipairs(PZBackup.lerLinhas(PZBackup.ARQ_ATALHOS)) do
+        local pasta, nome, salto = l:match("^([^|]+)|([^|]+)|?(.*)$")
+        if pasta == mm then return nome, salto end
+    end
+    return nil
+end
 
 -- Is there a backup of this world in the script's list?
 function PZBackup.temBackupDoMundo(modoMundo)

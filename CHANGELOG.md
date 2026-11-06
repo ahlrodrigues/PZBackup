@@ -3,6 +3,26 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org/).
 
+## [1.5.0] - 2026-11-06
+
+### Added
+- **Go back buttons in the F9 window**: *-5 min*, *-10 min*, *-1 h*, *-1 day* select the
+  newest backup at least that much older than the world's newest one (the loaded world in
+  game, the selected backup's world from the main menu). Greyed out when there's no backup
+  that old. Restoring still goes through *Restore* and its confirmation.
+- **Quick-restore entries in the game's *Load* list**: `<world>-BACKUP-5min`, `-10min`,
+  `-1h`, `-1d` for each world with a backup in the last 7 days. Loading one asks to restore
+  that backup into the original world (same flow as F9); nothing played inside an entry is
+  kept, and F8 is disabled there. The entries are full copies, refreshed while the game is
+  closed, listed for the mod in `Zomboid/Lua/pzbackup_atalhos.txt`, and marked with a
+  `.pzbackup_atalho` file — folders without it are never replaced or removed. Backups an
+  entry points to are kept by the rotation until the next refresh. Settings: `SHORTCUTS` /
+  `$Shortcuts`, `SHORTCUT_DAYS` / `$ShortcutDays`.
+
+### Changed
+- `KEEP_HOURLY` / `$KeepHourly` default 24 → 26, so a backup about one day old is still
+  around for *-1 day*.
+
 ## [1.4.1] - 2026-10-20
 
 ### Fixed
@@ -199,6 +219,7 @@ First public release.
 - Installers for Linux (native and Flatpak Steam) and Windows 10/11.
 - In-game warning, with the repository address, when the script isn't installed.
 
+[1.5.0]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.5.0
 [1.4.1]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.4.1
 [1.4.0]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.4.0
 [1.3.0]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.3.0

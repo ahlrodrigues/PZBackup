@@ -14,6 +14,10 @@
     note, danger, mods compared with now)
   - Pin / Unpin (pinned backups are never removed by the rotation)
   - Note: names a backup ("before the mall")
+
+  v1.5:
+  - "Go back" buttons (-5 min, -10 min, -1 h, -1 day) select the newest backup of the
+    world at least that much older than its newest one
 ]]
 
 require "ISUI/ISPanel"
@@ -27,7 +31,8 @@ PZBackupJanela = ISPanel:derive("PZBackupJanela")
 local LARGURA, ALTURA = 720, 700
 local FONTE = UIFont.Small
 local Y_LEGENDA = 40                -- legend row, between the title and the list
-local Y_LISTA = 62
+local Y_SALTOS = 60                 -- "Go back" buttons row
+local Y_LISTA = 92
 local ALTURA_DETALHES = 232         -- details area between the list and the message (14 lines)
 local MAX_MODS_DIALOGO = 6          -- mod names listed per side in the confirm dialog
 local QUADROS_RECARREGAR = 90       -- frames to wait before re-reading the list after a request
@@ -66,6 +71,35 @@ function PZBackup.classificar(det)
     end
     return "normal"
 end
+
+------------------------------------------------------------------------
+-- Backup names: "<mode>__<world>__2026-10-14_14-35-07"
+------------------------------------------------------------------------
+-- "mode/world" of a backup (same layout as PZBackup.mundoAtual)
+function PZBackup.mundoDoNome(nome)
+    local modo, mundo = tostring(nome):match("^(.-)__(.*)__.-$")
+    if not mundo then return nil end
+    return modo .. "/" .. mundo
+end
+
+-- Days since 1970-01-01 of a calendar date
+local function diasCivis(a, m, d)
+    if m <= 2 then a = a - 1 end
+    local era = math.floor(a / 400)
+    local anoEra = a - era * 400
+    local diaAno = math.floor((153 * ((m + 9) % 12) + 2) / 5) + d - 1
+    return era * 146097 + anoEra * 365 + math.floor(anoEra / 4) - math.floor(anoEra / 100) + diaAno - 719468
+end
+
+-- Seconds of the date in a backup name (local time; only for comparing backups)
+function PZBackup.segundosDoNome(nome)
+    local a, m, d, h, mi, s = tostring(nome):match(".*__(%d%d%d%d)%-(%d%d)%-(%d%d)_(%d%d)%-(%d%d)%-(%d%d)")
+    if not a then return nil end
+    return diasCivis(tonumber(a), tonumber(m), tonumber(d)) * 86400 + tonumber(h) * 3600 + tonumber(mi) * 60 + tonumber(s)
+end
+
+-- "Go back" buttons: offset key (strings salto_*) and seconds
+PZBackup.SALTOS = { { "5min", 300 }, { "10min", 600 }, { "1h", 3600 }, { "1d", 86400 } }
 
 ------------------------------------------------------------------------
 -- Closes the game so the script can restore
@@ -283,6 +317,19 @@ function PZBackupJanela:createChildren()
     self.lista.doDrawItem = desenharItem
     self:addChild(self.lista)
 
+    -- Go back: [-5 min] [-10 min] [-1 h] [-1 day]
+    self.btnSaltos = {}
+    local xSalto = 12 + getTextManager():MeasureStringX(FONTE, PZBackup.T("jan_saltos")) + 10
+    for _, s in ipairs(PZBackup.SALTOS) do
+        local b = ISButton:new(xSalto, Y_SALTOS, 80, 24, "-" .. PZBackup.T("salto_" .. s[1]), self, PZBackupJanela.aoClicarSalto)
+        b:initialise()
+        b.rotulo = PZBackup.T("salto_" .. s[1])
+        b.seg = s[2]
+        self:addChild(b)
+        table.insert(self.btnSaltos, b)
+        xSalto = xSalto + 88
+    end
+
     local yBotoes = self.height - 40
     local function botao(x, w, chave, fn)
         local b = ISButton:new(x, yBotoes, w, 28, PZBackup.T(chave), self, fn)
@@ -333,6 +380,8 @@ function PZBackupJanela:prerender()
         self:drawText(txtVersao, self.width - 12 - larg, 16, 1, 0.45, 0.35, 1, FONTE)
     end
     self:desenharLegenda()
+    self:drawText(PZBackup.T("jan_saltos"), 12, Y_SALTOS + 5, 0.75, 0.75, 0.75, 1, FONTE)
+    self:atualizarSaltos()
 
     -- Re-reads the list a moment after a request (the script answers within ~1 s)
     if self.recarregarEm then
@@ -352,6 +401,60 @@ function PZBackupJanela:prerender()
 
     local c = self.corMensagem
     self:drawText(self.mensagem, 12, self.height - 70, c.r, c.g, c.b, 1, FONTE)
+end
+
+-- "mode/world" the Go back buttons work on: the loaded world if it has backups,
+-- otherwise the selected backup's world (window opened from the main menu)
+function PZBackupJanela:mundoDosSaltos()
+    if getPlayer() then
+        local mm = PZBackup.mundoAtual()
+        for _, it in ipairs(self.lista.items) do
+            if PZBackup.mundoDoNome(it.item) == mm then return mm end
+        end
+    end
+    local item = self:selecionado()
+    return item and PZBackup.mundoDoNome(item.item)
+end
+
+-- List index of the world's newest backup at least seg seconds older than its newest one
+-- (the list is newest first)
+function PZBackupJanela:alvoDoSalto(mm, seg)
+    local ref = nil
+    for i, it in ipairs(self.lista.items) do
+        if PZBackup.mundoDoNome(it.item) == mm then
+            local t = PZBackup.segundosDoNome(it.item)
+            if t then
+                ref = ref or t
+                if t <= ref - seg then return i end
+            end
+        end
+    end
+    return nil
+end
+
+-- Enables each Go back button that has a target (recomputed when the selection or list changes)
+function PZBackupJanela:atualizarSaltos()
+    local chave = tostring(self.lista.selected) .. "|" .. tostring(self.versaoLista)
+    if chave == self.chaveSaltos then return end
+    self.chaveSaltos = chave
+    local mm = self:mundoDosSaltos()
+    for _, b in ipairs(self.btnSaltos) do
+        b.alvo = mm and self:alvoDoSalto(mm, b.seg) or nil
+        b:setEnable(b.alvo ~= nil)
+        if b.alvo then
+            b:setTooltip(PZBackup.T("jan_salto_dica", self.lista.items[b.alvo].rotuloBase))
+        else
+            b:setTooltip(PZBackup.T("jan_salto_sem"))
+        end
+    end
+end
+
+function PZBackupJanela:aoClicarSalto(botao)
+    local item = botao.alvo and self.lista.items[botao.alvo]
+    if not item then return end
+    self.lista.selected = botao.alvo
+    if self.lista.ensureVisible then self.lista:ensureVisible(botao.alvo) end
+    self:avisar(PZBackup.T("jan_salto_selecionado", botao.rotulo, item.rotuloBase), false)
 end
 
 function PZBackupJanela:desenharDetalhes()
@@ -388,6 +491,7 @@ function PZBackupJanela:carregar(manterSelecao)
         anterior = item and item.item
     end
     self.detalhes = PZBackup.lerDetalhes()
+    self.versaoLista = (self.versaoLista or 0) + 1     -- Go back buttons recompute
     self.lista:clear()
     for _, l in ipairs(PZBackup.lerLinhas(PZBackup.ARQ_LISTA)) do
         local nome, rotulo = l:match("^([^|]+)|(.*)$")
