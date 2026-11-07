@@ -3,6 +3,23 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org/).
 
+## [1.6.0] - 2026-11-07
+
+### Changed
+- **Load-list entries load straight in.** Loading `<world>-BACKUP-5min` (etc.) no longer asks
+  to restore and restarts the game: you just play that moment. Backups taken there (automatic,
+  F8, F7) go to the original world's list, and when the game closes the played entry becomes
+  the original world (the previous one is kept in `replaced`). Not done if the character died
+  in the entry or the original world was played after it. If several entries of one world were
+  played, the most recent wins. Restoring a backup removes that world's entries first.
+- **Go back offsets in minutes/hours count play time.** The mod counts real seconds played in
+  the save (`tempo_jogo` in the backup details); `-5min`, `-10min`, `-1h` (Load list and F9)
+  use it, so a short session no longer makes them all land on the previous session's last
+  backup (and get merged, leaving only `-5min` and `-1d`). `-1d` stays calendar time. Backups
+  without `tempo_jogo` (older than 1.6) use calendar time.
+- `pzbackup_estado.txt` line 4: the folder where the character died, so a death inside a
+  Load-list entry never removes the (alive) original world.
+
 ## [1.5.0] - 2026-11-06
 
 ### Added
@@ -219,6 +236,7 @@ First public release.
 - Installers for Linux (native and Flatpak Steam) and Windows 10/11.
 - In-game warning, with the repository address, when the script isn't installed.
 
+[1.6.0]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.6.0
 [1.5.0]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.5.0
 [1.4.1]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.4.1
 [1.4.0]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.4.0

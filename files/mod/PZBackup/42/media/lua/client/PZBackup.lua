@@ -9,6 +9,8 @@
     pzbackup_restaurar.txt  (mod -> script)  backup to restore when the game closes
     pzbackup_estado.txt     (mod -> script)  "vivo" (alive) or "morto" (dead) + line 2: mode/world
                                              + line 3 (v1.4+): Unix time of the death
+                                             + line 4 (v1.6+): mode/folder on disk (a quick-restore
+                                               entry reports its original world on line 2)
     pzbackup_config.txt     (mod -> script)  options the script uses (apagar_mortos=1/0, idioma=pt/en,
                                              margem_morte=<seconds>, adiar_perigo=1/0)
     pzbackup_perigo.txt     (mod -> script)  "<0|1>|<reasons>|<unix time>", every ~2 s (v1.4+)
@@ -23,6 +25,8 @@
     pzbackup_detalhes.txt   (script -> mod)  per-backup details: name|pinned|key=value|key=value...
     pzbackup_atalhos.txt    (script -> mod)  quick-restore entries in the Load list (v1.5+):
                                              "mode/folder|backup name|offset" per line
+                                             (v1.6: an entry that was played becomes the original
+                                             world when the game closes)
 
   The script must be running in "game" mode.
 ]]
@@ -315,6 +319,7 @@ function PZBackup.infoPersonagem()
     end
     add("ambiente", ambiente)
     add("perigo", table.concat(PZBackup.avaliarPerigo(), ","))
+    add("tempo_jogo", PZBackup.tempoJogo())  -- seconds played (Go back offsets)
     return campos
 end
 
@@ -481,10 +486,6 @@ local function pedirBackup(nota)
         PZBackup.mostrar(PZBackup.T("msg_morto_bloqueado"), true)
         return
     end
-    if PZBackup.atalhoAtual() then
-        PZBackup.mostrar(PZBackup.T("atalho_sem_backup"), true)
-        return
-    end
     if not PZBackup.scriptAtivo() then
         PZBackup.mostrar(PZBackup.T("msg_script_parado", PZBackup.URL), true)
         return
@@ -531,22 +532,58 @@ end
 ------------------------------------------------------------------------
 -- Character state (the script doesn't back up while "morto"/dead)
 ------------------------------------------------------------------------
--- "mode/world" of the loaded save (same layout as Saves/<mode>/<world>)
-function PZBackup.mundoAtual()
+-- "mode/folder" of the loaded save, as it is on disk (Saves/<mode>/<folder>)
+function PZBackup.pastaAtual()
     return tostring(getWorld():getGameMode() or "") .. "/" .. tostring(getWorld():getWorld() or "")
+end
+
+-- Quick-restore entry loaded from the Load list (pzbackup_atalhos.txt)?
+-- Returns the backup name, offset ("1h") and the original "mode/world", or nil for a real world
+function PZBackup.atalhoAtual()
+    local pasta = PZBackup.pastaAtual()
+    for _, l in ipairs(PZBackup.lerLinhas(PZBackup.ARQ_ATALHOS)) do
+        local p, nome, salto = l:match("^([^|]+)|([^|]+)|?(.*)$")
+        if p == pasta then
+            local modo, mundo = tostring(nome):match("^(.-)__(.*)__.-$")
+            return nome, salto, mundo and (modo .. "/" .. mundo) or nil
+        end
+    end
+    return nil
+end
+
+-- "mode/world" of the loaded save. A quick-restore entry counts as its original world:
+-- it becomes that world when the game closes (v1.6), so its backups, death and
+-- restores all belong to the original world.
+function PZBackup.mundoAtual()
+    local _, _, original = PZBackup.atalhoAtual()
+    return original or PZBackup.pastaAtual()
 end
 
 local mundoAtual = PZBackup.mundoAtual
 
--- Quick-restore entry loaded from the Load list (pzbackup_atalhos.txt)?
--- Returns the backup name and offset ("1h"), or nil for a real world
-function PZBackup.atalhoAtual()
-    local mm = mundoAtual()
-    for _, l in ipairs(PZBackup.lerLinhas(PZBackup.ARQ_ATALHOS)) do
-        local pasta, nome, salto = l:match("^([^|]+)|([^|]+)|?(.*)$")
-        if pasta == mm then return nome, salto end
-    end
-    return nil
+------------------------------------------------------------------------
+-- Play time: real seconds played in this world, kept in the save (ModData).
+-- The "Go back" offsets in minutes/hours count play time, so the time the game
+-- was closed between sessions doesn't make them all land on the same backup.
+------------------------------------------------------------------------
+local ultimoTickMs = nil
+local function contarTempoJogo()
+    local agora = getTimestampMs()
+    local delta = ultimoTickMs and (agora - ultimoTickMs) or 0
+    ultimoTickMs = agora
+    if delta <= 0 or delta > 1000 then return end   -- first tick / loading hitch
+    if isGamePaused and isGamePaused() then return end
+    local p = getPlayer()
+    if not p or p:isDead() then return end
+    local md = getGameTime():getModData()
+    md.PZBackup_msJogo = (tonumber(md.PZBackup_msJogo) or 0) + delta
+end
+
+-- Seconds played in this world (nil before the first tick)
+function PZBackup.tempoJogo()
+    local md = getGameTime():getModData()
+    local ms = tonumber(md.PZBackup_msJogo)
+    return ms and math.floor(ms / 1000) or nil
 end
 
 -- Is there a backup of this world in the script's list?
@@ -575,7 +612,9 @@ end
 local function aoMorrer(jogador)
     if jogador == getPlayer() then
         local mm = mundoAtual()
-        PZBackup.gravar(PZBackup.ARQ_ESTADO, "morto\n" .. mm .. "\n" .. tostring(PZBackup.agora()) .. "\n")
+        -- line 4 (v1.6): the folder on disk (differs from mm in a quick-restore entry)
+        PZBackup.gravar(PZBackup.ARQ_ESTADO, "morto\n" .. mm .. "\n" .. tostring(PZBackup.agora()) .. "\n"
+            .. PZBackup.pastaAtual() .. "\n")
         if PZBackup.restaurarAuto() and PZBackup.scriptAtivo() and PZBackup.temBackupDoMundo(mm)
            and PZBackup.iniciarRestauracaoAuto then
             PZBackup.iniciarRestauracaoAuto(mm)
@@ -642,6 +681,7 @@ Events.OnKeyPressed.Add(aoPressionarTecla)
 Events.OnPlayerDeath.Add(aoMorrer)
 Events.OnTick.Add(lerStatus)
 Events.OnTick.Add(verificarPerigo)
+Events.OnTick.Add(contarTempoJogo)
 
 print("[PZBackup] " .. PZBackup.VERSAO .. " loaded - backup key: " .. tostring(Keyboard.getKeyName(tecla(opcaoBackup, TECLA_BACKUP_PADRAO)))
     .. ", restore key: " .. tostring(Keyboard.getKeyName(tecla(opcaoRestaurar, TECLA_RESTAURAR_PADRAO))))

@@ -281,12 +281,8 @@ local TEXTOS = {
                                 en = "No backup of this world that old" },
     jan_salto_selecionado   = { pt = "Selecionado: %s antes do mais recente (%s). Confira e clique em Restaurar.",
                                 en = "Selected: %s before the newest one (%s). Check it and click Restore." },
-    atalho_dialogo          = { pt = "Este save e um ATALHO do PZ Backup:\no backup de %s antes do mais recente deste mundo (%s).\n\nRestaurar este momento no mundo original?\nO jogo FECHA, restaura e REABRE sozinho: depois clique em Continuar.\nO progresso do mundo original desde esse backup fica guardado em 'replaced'.\n\nSe escolher Nao, nada feito aqui sera guardado:\no atalho e recriado na proxima vez que o jogo abrir.",
-                                en = "This save is a PZ Backup QUICK-RESTORE entry:\nthe backup from %s before this world's newest one (%s).\n\nRestore this moment into the original world?\nThe game CLOSES, restores and REOPENS by itself: then click Continue.\nThe original world's progress since that backup is kept in 'replaced'.\n\nIf you choose No, nothing done here is kept:\nthe entry is recreated the next time the game starts." },
-    atalho_jogando          = { pt = "Atalho de backup: nada feito aqui sera guardado. F9 restaura um backup",
-                                en = "Quick-restore entry: nothing done here is kept. F9 restores a backup" },
-    atalho_sem_backup       = { pt = "Atalho de backup: sem backup aqui. Restaure-o para jogar",
-                                en = "Quick-restore entry: no backups here. Restore it to play" },
+    atalho_carregado        = { pt = "Voltou %s (backup de %s). Jogue normalmente: ao fechar o jogo isto vira o mundo %s",
+                                en = "Went back %s (backup from %s). Just play: when the game closes this becomes the world %s" },
 
     -- Log window
     log_titulo              = { pt = "PZ Backup - Log",

@@ -5,7 +5,7 @@
 **Downloads:** <https://github.com/ahlrodrigues/PZBackup/releases> ·
 **Steam Workshop:** <https://steamcommunity.com/sharedfiles/filedetails/?id=3821180981> ·
 *English:* [README.md](README.md)
-Versão 1.5.0 · Mod ID `PZBackupAHLR` · Workshop ID `3821180981` · Licença [MIT](LICENSE) · Build 42
+Versão 1.6.0 · Mod ID `PZBackupAHLR` · Workshop ID `3821180981` · Licença [MIT](LICENSE) · Build 42
 
 Você passou três semanas montando a base perfeita. Cerca dupla, horta, gerador,
 estoque de feijão enlatado pra sobreviver ao fim do mundo duas vezes. Aí abriu uma
@@ -19,10 +19,10 @@ mão, sem chorar no Discord.
 > "Mas isso não é trapaça?" — É o *seu* jogo. Joga do jeito que te faz feliz.
 > E se quiser hardcore raiz, é só desligar a restauração automática nas opções. 😉
 
-> 🆕 **Novo na 1.5: volte no tempo com um clique.** A janela do F9 ganhou os botões
+> 🆕 **1.5–1.6: volte no tempo com um clique.** A janela do F9 ganhou os botões
 > **-5 min**, **-10 min**, **-1 h** e **-1 dia**, e a própria lista **Carregar** do jogo
 > agora mostra `<mundo>-BACKUP-5min`, `-10min`, `-1h`, `-1d` do lado de cada mundo recente.
-> Carregou, disse *Sim*, e você está de volta naquele momento — sem caçar janela, sem rolar lista.
+> Carregou, e você está de volta naquele momento — sem pergunta, sem reiniciar (1.6).
 > [Como funciona ↓](#%EF%B8%8F-direto-da-lista-carregar)
 
 ---
@@ -184,7 +184,8 @@ passar: se você apertou, é porque quer.
 1. **F9** (ou *Opções → Mods → PZ Backup → Restaurar backup...*).
 2. Escolha na lista — o **1 é o mais recente** — ou use os botões **Voltar**: **-5 min**,
    **-10 min**, **-1 h**, **-1 dia** selecionam o backup mais novo com pelo menos esse tempo
-   a menos que o mais recente do mundo (cinza = não tem backup tão antigo). Embaixo da lista
+   a menos que o mais recente do mundo (cinza = não tem backup tão antigo). Minutos e horas
+   contam **tempo de jogo** (o tempo com o jogo fechado não conta); 1 dia é tempo de calendário. Embaixo da lista
    aparece como você estava naquela hora (veja a tabela abaixo), inclusive se os **mods**
    batem com os de agora.
 3. Clique em **Restaurar** e confirme. O jogo fecha, restaura e reabre sozinho.
@@ -200,13 +201,20 @@ entradas do lado do mundo de verdade:
 
 | Entrada | O que é |
 |---|---|
-| `2026-10-31_11-50-11-BACKUP-5min` | o backup mais novo com pelo menos 5 min a menos que o mais recente do mundo |
-| `...-BACKUP-10min`, `...-BACKUP-1h`, `...-BACKUP-1d` | igual, 10 min / 1 h / 1 dia atrás |
+| `2026-10-31_11-50-11-BACKUP-5min` | o backup de 5 min de jogo antes do mais recente do mundo |
+| `...-BACKUP-10min`, `...-BACKUP-1h` | igual, 10 min / 1 h de jogo atrás |
+| `...-BACKUP-1d` | o backup mais novo com pelo menos 1 dia de calendário a menos |
 
-Carregou uma? Uma janela pergunta: **restaurar este momento no mundo original?** *Sim*
-funciona igual ao F9 (o jogo fecha, restaura e reabre; depois é só *Continuar*). *Não*
-deixa você dar uma olhada, mas nada feito ali é guardado: a entrada é recriada na próxima
-vez que o jogo abrir. O F8 não faz backup dentro de uma entrada.
+**Carregou, é só jogar** (1.6): sem pergunta, sem reiniciar. Os backups (automático, F8, F7)
+entram na lista do mundo original, e **quando o jogo fecha a entrada vira o mundo original**
+(o anterior fica guardado em `replaced/`), então da próxima vez o *Continuar* abre onde
+você parou. A entrada não é usada se você morrer nela ou se voltar a jogar o mundo original
+depois dela.
+
+Minutos e horas contam **tempo de jogo** (o mod conta dentro do save): uma sessão que começou
+há poucos minutos ainda ganha entradas separadas de *-5 min*, *-10 min* e *-1 h*, em vez de
+todas caírem no último backup de ontem. Backups feitos antes da 1.6 não têm essa conta e
+usam o tempo de calendário.
 
 As entradas são cópias completas (o jogo pode gravar nelas), atualizadas com o jogo
 fechado, então custam umas 4× o tamanho do save por mundo recente. Entradas que cairiam no

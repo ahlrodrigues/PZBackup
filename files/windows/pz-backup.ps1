@@ -1,5 +1,5 @@
 ﻿# pz-backup.ps1 — automatic and manual save backups for Project Zomboid (Windows)
-# Version 1.5.0 — https://github.com/ahlrodrigues/PZBackup — MIT License
+# Version 1.6.0 — https://github.com/ahlrodrigues/PZBackup — MIT License
 #
 # Usage (PowerShell):
 #   pz-backup.ps1 save        -> back up now
@@ -20,7 +20,7 @@
 
 param([string]$Acao = "", [int]$Numero = 1, [string]$Texto = "")
 
-$Versao = "1.5.0"                                # updated by tools/bump-version.sh
+$Versao = "1.6.0"                                # updated by tools/bump-version.sh
 
 # ---------------- Settings ----------------
 $Interval     = 5                                # minutes between automatic backups
@@ -135,6 +135,31 @@ function Save-Atual {
 
 # Quick-restore copy made by the script (not a real world)?
 function Eh-Atalho([string]$Dir) { Test-Path -LiteralPath (Join-Path $Dir $MarcaAtalho) }
+
+# Original world of a quick-restore copy (from the backup name in its marker), "" if unknown
+function Mundo-Do-Atalho([string]$Dir) {
+    $marca = Join-Path $Dir $MarcaAtalho
+    if (-not (Test-Path -LiteralPath $marca)) { return "" }
+    $n = "$(Get-Content -LiteralPath $marca -TotalCount 1)".Trim()
+    $partes = $n -split "__"
+    if ($partes.Count -lt 3) { return "" }
+    return ($partes[1..($partes.Count - 2)] -join "__")
+}
+
+# Newest file in a save (without the marker), as a DateTime; MinValue if empty
+function Mais-Recente([string]$Dir) {
+    $f = Get-ChildItem -LiteralPath $Dir -Recurse -File -Force -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -ne $MarcaAtalho } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($f) { return $f.LastWriteTime }
+    return [DateTime]::MinValue
+}
+
+# Was this quick-restore copy played? (the game wrote to it after the copy)
+function Atalho-Jogado([string]$Dir) {
+    $marca = Join-Path $Dir $MarcaAtalho
+    if (-not (Test-Path -LiteralPath $marca)) { return $false }
+    return (Mais-Recente $Dir) -gt (Get-Item -LiteralPath $marca -Force).LastWriteTime
+}
 
 # On Windows, death detection relies on the PZ Backup mod
 # (the notice is only valid if updated in the last 12 h)
@@ -298,6 +323,7 @@ function Copiar([string]$Origem, [string]$Alvo, [string]$Anterior) {
     $usarLinks = $Hardlinks -and $Anterior -and (Test-Path -LiteralPath $Anterior)
     if (-not $usarLinks) {
         Copy-Item -LiteralPath $Origem $Alvo -Recurse -ErrorAction Stop
+        Remove-Item -LiteralPath (Join-Path $Alvo $MarcaAtalho) -Force -ErrorAction SilentlyContinue
         return (Tamanho-MB $Alvo)
     }
     $raiz = (Resolve-Path -LiteralPath $Origem).Path.TrimEnd('\', '/')
@@ -308,6 +334,7 @@ function Copiar([string]$Origem, [string]$Alvo, [string]$Anterior) {
     }
     foreach ($f in (Get-ChildItem -LiteralPath $raiz -Recurse -File)) {
         $rel = $f.FullName.Substring($raiz.Length + 1)
+        if ($rel -eq $MarcaAtalho) { continue }        # quick-restore marker: not part of the save
         $novo = Join-Path $Alvo $rel
         $velho = Join-Path $Anterior $rel
         $linkou = $false
@@ -330,7 +357,8 @@ function Copia-Confere([string]$A, [string]$B) {
     $lista = {
         param($d)
         $r = (Resolve-Path -LiteralPath $d).Path.TrimEnd('\', '/')
-        (Get-ChildItem -LiteralPath $r -Recurse -File | ForEach-Object { "$($_.Length) $($_.FullName.Substring($r.Length + 1))" } | Sort-Object) -join "`n"
+        (Get-ChildItem -LiteralPath $r -Recurse -File | Where-Object { $_.Name -ne $MarcaAtalho } |
+            ForEach-Object { "$($_.Length) $($_.FullName.Substring($r.Length + 1))" } | Sort-Object) -join "`n"
     }
     return ((& $lista $A) -eq (& $lista $B))
 }
@@ -345,9 +373,10 @@ function Anterior-Do-Mundo([string]$Modo, [string]$Mundo, [string]$Exceto) {
 
 # ---------------- Backup ----------------
 # Core copy, no death/danger checks. Uses $script:Origem as the backup's source tag.
-function Copiar-Backup($Origem, [string]$Nota = "", [bool]$Fixar = $false) {
+# $Mundo: a quick-restore copy is backed up as its original world.
+function Copiar-Backup($Origem, [string]$Nota = "", [bool]$Fixar = $false, [string]$Mundo = "") {
     $modo = $Origem.Parent.Name
-    $mundo = $Origem.Name
+    $mundo = if ($Mundo) { $Mundo } else { $Origem.Name }
     $carimbo = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $alvo = Join-Path $Destino "${modo}__${mundo}__${carimbo}"
     if (Test-Path -LiteralPath $alvo) { $alvo = "$alvo-$PID" }
@@ -408,16 +437,20 @@ function Espaco-Ok($Origem) {
 function Fazer-Backup([string]$Nota = "") {
     $origem = Save-Atual
     if (-not $origem) { Avisar (Msg "Nenhum save encontrado em $Saves" "No save found in $Saves") "erro"; return "falha" }
-    # Playing a quick-restore copy: its progress is thrown away, and backing up the
-    # real world instead would only push older backups out of the rotation
+    # Playing a quick-restore copy: it becomes the original world when the game closes,
+    # so its backups go to the original world's list
+    $mundoReal = ""
     if (Eh-Atalho $origem.FullName) {
-        if ($script:Origem -ne "AUTO") {
-            Avisar (Msg "$($origem.Name) e um atalho de restauracao - backup nao feito" "$($origem.Name) is a quick-restore entry - backup not taken") "erro"
+        $mundoReal = Mundo-Do-Atalho $origem.FullName
+        if (-not $mundoReal) {
+            if ($script:Origem -ne "AUTO") {
+                Avisar (Msg "$($origem.Name) e um atalho de restauracao sem origem - backup nao feito" "$($origem.Name) is a quick-restore entry with no source - backup not taken") "erro"
+            }
+            return "falha"
         }
-        return "falha"
     }
 
-    $mundo = $origem.Name
+    $mundo = if ($mundoReal) { $mundoReal } else { $origem.Name }
     if ((Estado-Personagem) -eq "morto") {
         Avisar (Msg "Personagem MORTO em $mundo - backup NAO feito. F9 ou o atalho Restaurar" "Character is DEAD in $mundo - backup NOT taken. F9 or the Restore shortcut") "erro"
         return "morto"
@@ -441,7 +474,7 @@ function Fazer-Backup([string]$Nota = "") {
         Avisar (Msg "Perigo passou - fazendo o backup adiado" "Danger is over - taking the postponed backup")
     }
     $script:Adiado = $false
-    if (Copiar-Backup $origem $Nota $false) { return "ok" }
+    if (Copiar-Backup $origem $Nota $false $mundoReal) { return "ok" }
     return "falha"
 }
 
@@ -703,16 +736,28 @@ function Listar {
 # For each world with a backup in the last $ShortcutDays days, full copies of a few
 # older backups go to Saves\<mode>\<world>-BACKUP-<offset> (offsets from $Shortcuts),
 # refreshed while the game is CLOSED (it reads the save list only on startup).
-# Loading one doesn't play it: the mod asks to restore that backup into the original
-# world. Listed for the mod in
+# Loading one just plays that moment; when the game closes, a played copy becomes
+# the original world (Promover-Atalhos). Listed for the mod in
 #   Zomboid\Lua\pzbackup_atalhos.txt   mode/folder|backup name|offset
 # Each copy holds $MarcaAtalho; folders without it are never replaced or removed.
+#
+# Offsets in min/h count PLAY time (tempo_jogo, seconds the mod counted in the save),
+# so the time the game was closed between sessions doesn't count; offsets in d count
+# calendar time (1d = yesterday at this time). Backups without tempo_jogo (older than
+# 1.6) fall back to calendar time.
 
 # "1h" -> 3600 (units: min, h, d); $null if invalid
 function Atalho-Seg([string]$A) {
     if ($A -notmatch '^(\d+)(min|h|d)$') { return $null }
     $n = [int]$Matches[1]
     switch ($Matches[2]) { "min" { return $n * 60 } "h" { return $n * 3600 } default { return $n * 86400 } }
+}
+
+# Play seconds of a backup (tempo_jogo in its details), $null if unknown
+function Tempo-Jogo([string]$Nome) {
+    $t = Info-Campo $Nome "tempo_jogo"
+    if ($t -match '^\d+$') { return [long]$t }
+    return $null
 }
 
 # Is this backup the source of a Load-list entry? (kept by the rotation until the next refresh)
@@ -758,13 +803,18 @@ function Atualizar-Atalhos {
             $modo = ($g.Name -split "__")[0]; $mundo = $g.Name.Substring($modo.Length + 2)
             if ($modo -eq "Multiplayer") { continue }
             $bs = @($g.Group | Sort-Object Name -Descending |
-                    ForEach-Object { [pscustomobject]@{ Nome = $_.Name; E = Backup-Epoch $_.Name } })
+                    ForEach-Object { [pscustomobject]@{ Nome = $_.Name; E = Backup-Epoch $_.Name; J = Tempo-Jogo $_.Name } })
             if ($bs.Count -lt 2 -or $bs[0].E -lt $limite) { continue }
-            $ref = $bs[0].E; $ant = ""
+            $ref = $bs[0].E; $refJ = $bs[0].J; $ant = ""
             foreach ($a in $Shortcuts) {
                 $seg = Atalho-Seg $a; if ($null -eq $seg) { continue }
+                $porJogo = $a -notmatch 'd$'           # min/h: play time; d: calendar time
                 # newest backup at least <offset> older than the world's newest one
-                $alvo = $bs | Where-Object { $_.E -le ($ref - $seg) } | Select-Object -First 1
+                # (play time when both have it, else calendar time)
+                $alvo = $bs | Select-Object -Skip 1 | Where-Object {
+                    if ($porJogo -and $null -ne $refJ -and $null -ne $_.J) { $_.J -le ($refJ - $seg) }
+                    else { $_.E -le ($ref - $seg) }
+                } | Select-Object -First 1
                 if (-not $alvo -or $alvo.Nome -eq $ant) { continue }   # same backup as the shorter offset
                 $ant = $alvo.Nome
                 $pasta = Join-Path (Join-Path $Saves $modo) "$mundo-BACKUP-$a"
@@ -783,6 +833,68 @@ function Atualizar-Atalhos {
     [IO.File]::WriteAllText((Join-Path $LuaDir "pzbackup_atalhos.txt"), $texto, $Utf8)
 }
 
+# A quick-restore copy that was played becomes its original world (game CLOSED only):
+# the original goes to BackupsSaves\replaced and the copy takes its name, so "Continue"
+# and the Load list show the world where the player stopped. Skipped when:
+#   - the character died in the copy (the copy is recreated on the next start);
+#   - the original world was played after the copy (the player went back to it).
+# If several copies of one world were played, the most recent one wins.
+function Promover-Atalhos {
+    if (-not (Test-Path $Saves)) { return }
+    $est = @(Get-Content (Join-Path $LuaDir "pzbackup_estado.txt") -TotalCount 4 -ErrorAction SilentlyContinue)
+    $escolhido = @{}; $quando = @{}
+    foreach ($w in (Get-ChildItem -LiteralPath $Saves -Directory | ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -Directory })) {
+        if (-not (Eh-Atalho $w.FullName) -or -not (Atalho-Jogado $w.FullName)) { continue }
+        $modo = $w.Parent.Name
+        if ($modo -eq "Multiplayer") { continue }
+        $real = Mundo-Do-Atalho $w.FullName
+        if (-not $real) { continue }
+        # Character died in this copy (mod notice: line 4 = folder; older mods: line 2 = original world)
+        if ($est.Count -ge 2 -and $est[0] -match '^morto') {
+            if ($est.Count -ge 4 -and $est[3].Trim()) { if ($est[3].Trim() -eq "$modo/$($w.Name)") { continue } }
+            elseif ($est[1].Trim() -eq "$modo/$real") { continue }
+        }
+        $dest = Join-Path $w.Parent.FullName $real
+        $t = Mais-Recente $w.FullName
+        if (-not $escolhido.ContainsKey($dest) -or $t -gt $quando[$dest]) { $escolhido[$dest] = $w.FullName; $quando[$dest] = $t }
+    }
+    foreach ($dest in @($escolhido.Keys)) {
+        $w = $escolhido[$dest]
+        if ((Test-Path -LiteralPath $dest) -and -not (Eh-Atalho $dest)) {
+            if ((Mais-Recente $dest) -gt $quando[$dest]) { continue }   # the original was played after it
+            New-Item -ItemType Directory -Force -Path $Subst | Out-Null
+            $m = Split-Path (Split-Path $dest -Parent) -Leaf
+            try { Move-Item -LiteralPath $dest (Join-Path $Subst "${m}__$(Split-Path $dest -Leaf)__$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss')") -ErrorAction Stop }
+            catch { continue }
+        }
+        try {
+            Move-Item -LiteralPath $w $dest -ErrorAction Stop
+            Remove-Item -LiteralPath (Join-Path $dest $MarcaAtalho) -Force -ErrorAction SilentlyContinue
+            (Get-Item -LiteralPath $dest).LastWriteTime = Get-Date   # newest save: "Continue" opens it
+            Avisar (Msg "$(Split-Path $w -Leaf) agora e o mundo $(Split-Path $dest -Leaf) (o anterior ficou em replaced)" "$(Split-Path $w -Leaf) is now the world $(Split-Path $dest -Leaf) (the previous one is kept in replaced)")
+        } catch {
+            Avisar (Msg "Nao consegui transformar $(Split-Path $w -Leaf) no mundo: $($_.Exception.Message)" "Couldn't turn $(Split-Path $w -Leaf) into the world: $($_.Exception.Message)") "erro"
+        }
+    }
+    if (Test-Path $Subst) {
+        Get-ChildItem $Subst -Directory | Where-Object { $_.Name -like "*__*__*" } |
+            Sort-Object { ($_.Name -split "__")[-1] } -Descending | Select-Object -Skip $KeepReplaced |
+            Remove-Item -Recurse -Force
+    }
+}
+
+# Removes the quick-restore copies of one world (after restoring it, a played copy
+# must not replace the restore when the game closes). The game must be CLOSED.
+function Apagar-Atalhos-Do-Mundo([string]$Modo, [string]$Mundo) {
+    $pasta = Join-Path $Saves $Modo
+    if (-not (Test-Path -LiteralPath $pasta)) { return }
+    foreach ($w in (Get-ChildItem -LiteralPath $pasta -Directory)) {
+        if ((Eh-Atalho $w.FullName) -and (Mundo-Do-Atalho $w.FullName) -eq $Mundo) {
+            Remove-Item -LiteralPath $w.FullName -Recurse -Force
+        }
+    }
+}
+
 # Is the "remove dead-character saves" option on?
 function Apagar-Mortos-Ativo {
     if ($RemoveDead -eq "1") { return $true }
@@ -799,9 +911,15 @@ function Limpar-Mortos {
     if (-not (Apagar-Mortos-Ativo)) { return }
     $est = Join-Path $LuaDir "pzbackup_estado.txt"
     if (-not (Test-Path $est)) { return }
-    $linhas = @(Get-Content $est -TotalCount 2)
+    $linhas = @(Get-Content $est -TotalCount 4)
     if ($linhas.Count -lt 2 -or $linhas[0] -notmatch '^morto') { return }
     $alvo = $linhas[1].Trim()
+    # Died in a quick-restore copy (line 4 = its folder): the original world is alive,
+    # and the copy is never promoted (it's recreated on the next start)
+    if ($linhas.Count -ge 4 -and $linhas[3].Trim() -and $linhas[3].Trim() -ne $alvo) {
+        [IO.File]::WriteAllText($est, "limpo`n$alvo`n", $Utf8)
+        return
+    }
     $partes = $alvo -split '/', 2
     $modo = $partes[0]; $mundo = $partes[1]
     if (-not $mundo -or $modo -eq "Multiplayer") { return }
@@ -843,6 +961,7 @@ function Restaurar-Nome([string]$Nome) {
         Sort-Object { ($_.Name -split "__")[-1] } -Descending | Select-Object -Skip $KeepReplaced |
         Remove-Item -Recurse -Force
     New-Item -ItemType Directory -Force -Path (Split-Path $destinoSave) | Out-Null
+    Apagar-Atalhos-Do-Mundo $modo $mundo
     try {
         Copy-Item $escolhido $destinoSave -Recurse -ErrorAction Stop
         (Get-Item $destinoSave).LastWriteTime = Get-Date   # becomes the newest save
@@ -911,6 +1030,7 @@ function Modo-Jogo {
     while ($true) {
         $script:Origem = "AUTO"
         if (-not (Jogo-Aberto)) {
+            Promover-Atalhos                           # a copy played last time (if the script didn't see it close)
             Atualizar-Atalhos                          # game still closed: it reads the Load list on startup
             Start-Process "steam://rungameid/$SteamAppId"
         }
@@ -971,6 +1091,7 @@ function Modo-Jogo {
             }
         }
         $script:Origem = "FINAL"; [void](Fazer-Backup)   # skipped if the game closed in danger
+        $script:Origem = "AUTO"; Promover-Atalhos      # a played Load-list entry becomes its original world
         $script:Origem = "LIMPEZA"; Limpar-Mortos      # if the option is on
         return
     }

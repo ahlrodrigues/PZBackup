@@ -5,7 +5,7 @@
 **Downloads:** <https://github.com/ahlrodrigues/PZBackup/releases> ·
 **Steam Workshop:** <https://steamcommunity.com/sharedfiles/filedetails/?id=3821180981> ·
 *Português:* [LEIAME.md](LEIAME.md)
-Version 1.5.0 · Mod ID `PZBackupAHLR` · Workshop ID `3821180981` · [MIT](LICENSE) license · Build 42
+Version 1.6.0 · Mod ID `PZBackupAHLR` · Workshop ID `3821180981` · [MIT](LICENSE) license · Build 42
 
 You spent three weeks building the perfect base. Double fence, farm, generator,
 enough canned beans to survive the apocalypse twice. Then you opened one door
@@ -19,10 +19,10 @@ on Discord.
 > "Isn't that cheating?" — It's *your* game. Play it however makes you happy.
 > Want it hardcore? Turn auto-restore off in the options. 😉
 
-> 🆕 **New in 1.5: go back in time with one click.** The F9 window got **-5 min**,
+> 🆕 **1.5–1.6: go back in time with one click.** The F9 window got **-5 min**,
 > **-10 min**, **-1 h** and **-1 day** buttons, and the game's own **Load** list now shows
-> `<world>-BACKUP-5min`, `-10min`, `-1h`, `-1d` next to each recent world. Load one, say
-> *Yes*, and you're back at that moment — no window hunting, no list scrolling.
+> `<world>-BACKUP-5min`, `-10min`, `-1h`, `-1d` next to each recent world. Load one and
+> you're back at that moment — no question, no restart (1.6).
 > [How it works ↓](#%EF%B8%8F-straight-from-the-load-list)
 
 ---
@@ -181,7 +181,8 @@ if you pressed it, you meant it.
 1. **F9** (or *Options → Mods → PZ Backup → Restore a backup...*).
 2. Pick one — **#1 is the newest** — or use the **Go back** buttons: **-5 min**,
    **-10 min**, **-1 h**, **-1 day** select the newest backup at least that much older than
-   the world's newest one (grey = no backup that old). Below the list you see who you were
+   the world's newest one (grey = no backup that old). Minutes and hours count **play time**
+   (the time the game was closed doesn't count); 1 day is calendar time. Below the list you see who you were
    back then (see the table below), including whether the **mods** match the ones you have on now.
 3. Click **Restore** and confirm. The game closes, restores and reopens by itself.
 4. In *Load*, the restored save is at the top.
@@ -196,13 +197,20 @@ next to the real world:
 
 | Entry | What it is |
 |---|---|
-| `2026-10-31_11-50-11-BACKUP-5min` | the newest backup at least 5 min older than the world's newest one |
-| `...-BACKUP-10min`, `...-BACKUP-1h`, `...-BACKUP-1d` | same, 10 min / 1 h / 1 day back |
+| `2026-10-31_11-50-11-BACKUP-5min` | the backup from 5 min of play before the world's newest one |
+| `...-BACKUP-10min`, `...-BACKUP-1h` | same, 10 min / 1 h of play back |
+| `...-BACKUP-1d` | the newest backup at least 1 calendar day older |
 
-Load one and a window asks: **restore this moment into the original world?** *Yes* works
-like F9 (the game closes, restores and reopens; then click *Continue*). *No* lets you look
-around, but nothing done there is kept: the entry is recreated the next time the game starts.
-F8 doesn't back up inside an entry.
+**Load one and just play** (1.6): no question, no restart. Backups (automatic, F8, F7) go to
+the original world's list, and **when the game closes the entry becomes the original world**
+(the previous one is kept in `replaced/`), so next time *Continue* opens where you stopped.
+The entry is left alone if you die in it or if you go back and play the original world
+afterwards.
+
+Minutes and hours count **play time** (the mod counts it in the save), so a session that
+started a few minutes ago still gets separate *-5 min*, *-10 min* and *-1 h* entries instead
+of all of them landing on yesterday's last backup. Backups made before 1.6 don't have it and
+use calendar time.
 
 The entries are full copies (the game may write to them), refreshed while the game is
 closed, so they cost about 4× the save size per recent world. Entries pointing at the

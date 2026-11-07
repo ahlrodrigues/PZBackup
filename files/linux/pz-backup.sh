@@ -1,6 +1,6 @@
 #!/bin/bash
 # pz-backup.sh — automatic and manual save backups for Project Zomboid (Linux)
-# Version 1.5.0 — https://github.com/ahlrodrigues/PZBackup — MIT License
+# Version 1.6.0 — https://github.com/ahlrodrigues/PZBackup — MIT License
 #
 # Requires: bash. Recommended: python3 (beeps and players.db death check)
 #           and paplay/pw-play/aplay (sound). Without python3 backups still work.
@@ -22,7 +22,7 @@
 #                      (also serves the PZ Backup mod's keys and restore window)
 #   Older Portuguese command names still work: jogo = game, limpar = clean.
 
-VERSION="1.5.0"                           # updated by tools/bump-version.sh
+VERSION="1.6.0"                           # updated by tools/bump-version.sh
 
 # ---------------- Settings ----------------
 INTERVAL=5                                # minutes between automatic backups
@@ -169,6 +169,23 @@ save_atual() {
 
 # Quick-restore copy made by the script (not a real world)?
 eh_atalho() { [ -f "$1/$MARCA_ATALHO" ]; }
+
+# Original world of a quick-restore copy (from the backup name in its marker)
+mundo_do_atalho() {
+  local n
+  n=$(head -n1 "$1/$MARCA_ATALHO" 2>/dev/null | tr -d '\r')
+  case "$n" in *__*__*) n=${n#*__}; printf '%s' "${n%__*}" ;; esac
+}
+
+# Was this quick-restore copy played? (the game wrote to it after the copy)
+atalho_jogado() {
+  [ -n "$(find "$1" -type f ! -name "$MARCA_ATALHO" -newer "$1/$MARCA_ATALHO" -print -quit 2>/dev/null)" ]
+}
+
+# Modification time (Unix) of the newest file in a save, without the marker
+mais_recente() {
+  find "$1" -type f ! -name "$MARCA_ATALHO" -printf '%T@\n' 2>/dev/null | sort -n | tail -n1 | cut -d. -f1
+}
 
 # Checks the save's players.db to see if the character is dead.
 # Looks for any table with an isDead column (the game's format).
@@ -335,9 +352,9 @@ anterior_do_mundo() {
 copiar() {
   local origem="$1" alvo="$2" ant="$3"
   if [ "$HARDLINKS" = 1 ] && [ -n "$ant" ] && [ -d "$ant" ] && command -v rsync >/dev/null; then
-    rsync -a --delete --link-dest="$ant" "$origem/" "$alvo/"
+    rsync -a --delete --exclude="/$MARCA_ATALHO" --link-dest="$ant" "$origem/" "$alvo/"
   else
-    rm -rf -- "$alvo"; cp -a "$origem" "$alvo"
+    rm -rf -- "$alvo"; cp -a "$origem" "$alvo" && rm -f -- "${alvo:?}/${MARCA_ATALHO:?}"
   fi
 }
 
@@ -345,7 +362,7 @@ copiar() {
 copia_confere() {
   local a="$1" b="$2"
   [ "$VERIFY" = 1 ] || return 0
-  [ "$(cd "$a" && find . -type f -printf '%s %p\n' | sort)" = "$(cd "$b" && find . -type f -printf '%s %p\n' | sort)" ] || return 1
+  [ "$(cd "$a" && find . -type f ! -name "$MARCA_ATALHO" -printf '%s %p\n' | sort)" = "$(cd "$b" && find . -type f ! -name "$MARCA_ATALHO" -printf '%s %p\n' | sort)" ] || return 1
   if [ -f "$b/players.db" ] && command -v python3 >/dev/null; then
     [ "$(python3 - "$b/players.db" <<'PY' 2>/dev/null
 import sqlite3, sys
@@ -364,12 +381,13 @@ novos_mb() {
 
 # ---------------- Backup ----------------
 # Core copy, no checks about death/danger. Arguments:
-#   copiar_backup <save folder> <note or empty> <pin: 1/0>
+#   copiar_backup <save folder> <note or empty> <pin: 1/0> [world name]
+# (world name: a quick-restore copy is backed up as its original world)
 # Uses ORIGEM as the backup's source tag. Returns 0 ok, 1 failure.
 copiar_backup() {
   local origem="$1" nota="$2" pin="$3" modo mundo carimbo alvo ant conf=ok novos
   modo=$(basename "$(dirname "$origem")")
-  mundo=$(basename "$origem")
+  mundo=${4:-$(basename "$origem")}
   carimbo=$(date +%Y-%m-%d_%H-%M-%S)
   alvo="$DESTINO/${modo}__${mundo}__${carimbo}"
   [ -e "$alvo" ] && alvo="${alvo}-$$"     # two backups in the same second
@@ -429,11 +447,15 @@ fazer_backup() {
   local origem nota="${1:-}" perigo
   origem=$(save_atual)
   [ -z "$origem" ] && { avisar "$(msg "Nenhum save encontrado em $SAVES" "No save found in $SAVES")" erro; return 1; }
-  # Playing a quick-restore copy: its progress is thrown away, and backing up the
-  # real world instead would only push older backups out of the rotation
+  # Playing a quick-restore copy: it becomes the original world when the game closes,
+  # so its backups go to the original world's list
+  local mundo_real=""
   if eh_atalho "$origem"; then
-    [ "$ORIGEM" = AUTO ] || avisar "$(msg "$(basename "$origem") é um atalho de restauração — backup não feito" "$(basename "$origem") is a quick-restore entry — backup not taken")" erro
-    return 1
+    mundo_real=$(mundo_do_atalho "$origem")
+    if [ -z "$mundo_real" ]; then
+      [ "$ORIGEM" = AUTO ] || avisar "$(msg "$(basename "$origem") é um atalho de restauração sem origem — backup não feito" "$(basename "$origem") is a quick-restore entry with no source — backup not taken")" erro
+      return 1
+    fi
   fi
 
   # Don't bury the good backups under a dead character
@@ -457,7 +479,7 @@ fazer_backup() {
   esac
   [ -n "${ADIADO:-}" ] && [ "$ORIGEM" = AUTO ] && avisar "$(msg "Perigo passou — fazendo o backup adiado" "Danger is over — taking the postponed backup")"
   ADIADO=""
-  copiar_backup "$origem" "$nota" 0
+  copiar_backup "$origem" "$nota" 0 "$mundo_real"
 }
 
 # Automatic backup that keeps trying every DANGER_RETRY s while postponed
@@ -698,10 +720,15 @@ atualizar_lista() {
 # For each world with a backup in the last SHORTCUT_DAYS days, full copies of a few
 # older backups go to Saves/<mode>/<world>-BACKUP-<offset> (offsets from SHORTCUTS),
 # refreshed while the game is CLOSED (it reads the save list only on startup).
-# Loading one doesn't play it: the mod asks to restore that backup into the original
-# world. Listed for the mod in
+# Loading one just plays that moment; when the game closes, a played copy becomes
+# the original world (promover_atalhos). Listed for the mod in
 #   Zomboid/Lua/pzbackup_atalhos.txt   mode/folder|backup name|offset
 # Each copy holds MARCA_ATALHO; folders without it are never replaced or removed.
+#
+# Offsets in min/h count PLAY time (tempo_jogo, seconds the mod counted in the save),
+# so the time the game was closed between sessions doesn't count; offsets in d count
+# calendar time (1d = yesterday at this time). Backups without tempo_jogo (older than
+# 1.6) fall back to calendar time.
 
 # "1h" -> 3600 (units: min, h, d); empty if invalid
 atalho_seg() {
@@ -709,6 +736,15 @@ atalho_seg() {
   u=${1#"$n"}
   [ -n "$n" ] || return 0
   case "$u" in min) echo $((n * 60)) ;; h) echo $((n * 3600)) ;; d) echo $((n * 86400)) ;; esac
+}
+
+# "jogo" (play time) for min/h, "relogio" (calendar) for d
+atalho_modo() { case "$1" in *d) echo relogio ;; *) echo jogo ;; esac; }
+
+# Play seconds of a backup (tempo_jogo in its details), empty if unknown
+tempo_jogo() {
+  local t; t=$(info_campo "$1" tempo_jogo)
+  case "$t" in ''|*[!0-9]*) ;; *) printf '%s' "$t" ;; esac
 }
 
 # Is this backup the source of a Load-list entry? (kept by the rotation until the next refresh)
@@ -735,7 +771,8 @@ atalho_copiar() {
 atualizar_atalhos() {
   [ -d "$LUA_DIR" ] && [ -d "$SAVES" ] || return 0
   local tmp="$LUA_DIR/.pzbackup_atalhos.tmp" limite livre chave modo mundo d i a seg ref alvo ant pasta w
-  local -a nomes epocas
+  local tipo refj
+  local -a nomes epocas jogos
   local -A querer=()
   limite=$(( $(date +%s) - SHORTCUT_DAYS * 86400 ))
   livre=$(livre_mb "$SAVES")
@@ -745,18 +782,25 @@ atualizar_atalhos() {
     while IFS= read -r chave; do
       modo=${chave%%__*}; mundo=${chave#*__}
       [ "$modo" = Multiplayer ] && continue
-      nomes=(); epocas=()
+      nomes=(); epocas=(); jogos=()
       while IFS= read -r d; do
-        nomes+=("${d##*/}"); epocas+=("$(backup_epoch "${d##*/}")")
+        nomes+=("${d##*/}"); epocas+=("$(backup_epoch "${d##*/}")"); jogos+=("$(tempo_jogo "${d##*/}")")
       done < <(ls -d "$DESTINO/${chave}__"* 2>/dev/null | sort -r)
       [ ${#nomes[@]} -gt 1 ] && [ "${epocas[0]}" -ge "$limite" ] || continue
-      ref=${epocas[0]}; ant=""
+      ref=${epocas[0]}; refj=${jogos[0]}; ant=""
       for a in $SHORTCUTS; do
         seg=$(atalho_seg "$a"); [ -n "$seg" ] || continue
+        tipo=$(atalho_modo "$a")
         # newest backup at least <offset> older than the world's newest one
+        # (play time when both have it, else calendar time)
         alvo=""
         for i in "${!nomes[@]}"; do
-          [ "${epocas[$i]}" -le $((ref - seg)) ] && { alvo=${nomes[$i]}; break; }
+          [ "$i" -gt 0 ] || continue
+          if [ "$tipo" = jogo ] && [ -n "$refj" ] && [ -n "${jogos[$i]}" ]; then
+            [ "${jogos[$i]}" -le $((refj - seg)) ] && { alvo=${nomes[$i]}; break; }
+          else
+            [ "${epocas[$i]}" -le $((ref - seg)) ] && { alvo=${nomes[$i]}; break; }
+          fi
         done
         [ -n "$alvo" ] && [ "$alvo" != "$ant" ] || continue   # same backup as the shorter offset
         ant=$alvo
@@ -772,6 +816,65 @@ atualizar_atalhos() {
     eh_atalho "$w" && [ -z "${querer[$w]:-}" ] && rm -rf -- "$w"
   done
   mv -f "$tmp" "$LUA_DIR/pzbackup_atalhos.txt"
+}
+
+# A quick-restore copy that was played becomes its original world (game CLOSED only):
+# the original goes to BackupsSaves/replaced and the copy takes its name, so "Continue"
+# and the Load list show the world where the player stopped. Skipped when:
+#   - the character died in the copy (the copy is recreated on the next start);
+#   - the original world was played after the copy (the player went back to it).
+# If several copies of one world were played, the most recent one wins.
+promover_atalhos() {
+  [ -d "$SAVES" ] || return 0
+  local w modo real dest t est_l1 est_l2 est_l4
+  local -A escolhido=() quando=()
+  est_l1=$(sed -n 1p "$LUA_DIR/pzbackup_estado.txt" 2>/dev/null | tr -d '\r')
+  est_l2=$(sed -n 2p "$LUA_DIR/pzbackup_estado.txt" 2>/dev/null | tr -d '\r')
+  est_l4=$(sed -n 4p "$LUA_DIR/pzbackup_estado.txt" 2>/dev/null | tr -d '\r')
+  for w in "$SAVES"/*/*/; do
+    w=${w%/}
+    eh_atalho "$w" && atalho_jogado "$w" || continue
+    modo=$(basename "$(dirname "$w")")
+    [ "$modo" = Multiplayer ] && continue
+    real=$(mundo_do_atalho "$w"); [ -n "$real" ] || continue
+    # Character died in this copy (mod notice: line 4 = folder, line 2 = original world)
+    [ "$est_l1" = morto ] && [ "$est_l4" = "$modo/$(basename "$w")" ] && continue
+    case "$(estado_db "$w")" in
+      morto) continue ;;
+      desconhecido) [ "$est_l1" = morto ] && [ -z "$est_l4" ] && [ "$est_l2" = "$modo/$real" ] && continue ;;
+    esac
+    dest="$SAVES/$modo/$real"
+    t=$(mais_recente "$w"); t=${t:-0}
+    if [ -z "${escolhido[$dest]:-}" ] || [ "$t" -gt "${quando[$dest]}" ]; then
+      escolhido[$dest]=$w; quando[$dest]=$t
+    fi
+  done
+  for dest in "${!escolhido[@]}"; do
+    w=${escolhido[$dest]}
+    if [ -d "$dest" ] && ! eh_atalho "$dest"; then
+      t=$(mais_recente "$dest")
+      [ "${t:-0}" -gt "${quando[$dest]}" ] && continue      # the original was played after it
+      mkdir -p "$SUBST"
+      mv -- "$dest" "$SUBST/$(basename "$(dirname "$dest")")__$(basename "$dest")__$(date +%Y-%m-%d_%H-%M-%S)" || continue
+    fi
+    if mv -- "$w" "$dest"; then
+      rm -f -- "${dest:?}/${MARCA_ATALHO:?}"
+      touch "$dest"                       # newest save: "Continue" opens it
+      avisar "$(msg "$(basename "$w") agora é o mundo $(basename "$dest") (o anterior ficou em replaced)" "$(basename "$w") is now the world $(basename "$dest") (the previous one is kept in replaced)")"
+    fi
+  done
+  limpar_substituidos
+}
+
+# Removes the quick-restore copies of one world (after restoring it, a played copy
+# must not replace the restore when the game closes). The game must be CLOSED.
+apagar_atalhos_do_mundo() {
+  local modo="$1" mundo="$2" w
+  for w in "$SAVES/$modo"/*/; do
+    w=${w%/}
+    eh_atalho "$w" && [ "$(mundo_do_atalho "$w")" = "$mundo" ] && rm -rf -- "${w:?}"
+  done
+  return 0
 }
 
 # Mods that differ between a backup and the current game (from the mod's last info)
@@ -818,9 +921,15 @@ apagar_mortos_ativo() {
 limpar_mortos() {
   apagar_mortos_ativo || return 0
   local est="$LUA_DIR/pzbackup_estado.txt" mundo_mod="" w modo mundo estado n=0
+  local pasta_mod="" real_mod=""
   if [ -f "$est" ] && head -n1 "$est" | grep -q '^morto'; then
     mundo_mod=$(sed -n 2p "$est" | tr -d '\r')
+    pasta_mod=$(sed -n 4p "$est" | tr -d '\r')
   fi
+  # Died in a quick-restore copy (line 4 = its folder): the original world is alive,
+  # and the copy is never promoted (it's recreated on the next start)
+  real_mod=$mundo_mod
+  [ -n "$pasta_mod" ] && [ "$pasta_mod" != "$mundo_mod" ] && real_mod=""
   mkdir -p "$SUBST"
   for w in "$SAVES"/*/*/; do
     w=${w%/}; [ -d "$w" ] || continue
@@ -828,8 +937,8 @@ limpar_mortos() {
     [ "$modo" = Multiplayer ] && continue  # server saves: never touched
     eh_atalho "$w" && continue            # quick-restore copies are handled by atualizar_atalhos
     estado=$(estado_db "$w")
-    if [ "$estado" = morto ] || { [ "$estado" = desconhecido ] && [ -n "$mundo_mod" ] &&
-         { [ "$mundo_mod" = "$modo/$mundo" ] || [ "$mundo_mod" = "/$mundo" ]; }; }; then
+    if [ "$estado" = morto ] || { [ "$estado" = desconhecido ] && [ -n "$real_mod" ] &&
+         { [ "$real_mod" = "$modo/$mundo" ] || [ "$real_mod" = "/$mundo" ]; }; }; then
       mv "$w" "$SUBST/${modo}__${mundo}__$(date +%Y-%m-%d_%H-%M-%S)" &&
         { avisar "$(msg "Save de personagem morto removido de Carregar: $mundo (guardado em replaced)" "Dead character's save removed from Load: $mundo (kept in replaced)")"; n=$((n+1)); }
     fi
@@ -854,6 +963,7 @@ restaurar_nome() {
   mkdir -p "$SUBST" "$SAVES/$modo"
   [ -d "$destino_save" ] && mv "$destino_save" "$SUBST/${modo}__${mundo}__$(date +%Y-%m-%d_%H-%M-%S)"
   limpar_substituidos
+  apagar_atalhos_do_mundo "$modo" "$mundo"
   if cp -a "$escolhido" "$destino_save"; then
     touch "$destino_save"                 # becomes the newest save (top of the game's list)
     # The "morto" state belonged to the old save, not the restored one
@@ -930,6 +1040,7 @@ case "$1" in
            verificar_atualizacao         # pinned backup of every world if Steam updated the game
            while true; do
              ORIGEM="AUTO"
+             promover_atalhos              # a copy played last time (if the script didn't see it close)
              atualizar_lista
              atualizar_atalhos             # game still closed: it reads the Load list on startup
              ( trap 'kill $SP 2>/dev/null; exit 0' TERM
@@ -988,6 +1099,7 @@ case "$1" in
                fi
              fi
              ORIGEM="FINAL"; fazer_backup  # final backup, game already closed (skipped if it closed in danger)
+             ORIGEM="AUTO"; promover_atalhos # a played Load-list entry becomes its original world
              ORIGEM="LIMPEZA"; limpar_mortos # remove dead-character saves (if the option is on)
              exit $RC
            done ;;

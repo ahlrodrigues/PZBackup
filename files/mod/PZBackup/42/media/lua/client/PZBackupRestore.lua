@@ -18,6 +18,8 @@
   v1.5:
   - "Go back" buttons (-5 min, -10 min, -1 h, -1 day) select the newest backup of the
     world at least that much older than its newest one
+  v1.6:
+  - minutes/hours count play time (time with the game closed doesn't count); 1 day is calendar
 ]]
 
 require "ISUI/ISPanel"
@@ -98,8 +100,18 @@ function PZBackup.segundosDoNome(nome)
     return diasCivis(tonumber(a), tonumber(m), tonumber(d)) * 86400 + tonumber(h) * 3600 + tonumber(mi) * 60 + tonumber(s)
 end
 
--- "Go back" buttons: offset key (strings salto_*) and seconds
-PZBackup.SALTOS = { { "5min", 300 }, { "10min", 600 }, { "1h", 3600 }, { "1d", 86400 } }
+-- "Go back" buttons: offset key (strings salto_*), seconds, and how they're counted:
+--   "jogo"    = play time (tempo_jogo in the details; the time the game was closed doesn't count)
+--   "relogio" = calendar time (1 day = yesterday at this time)
+-- Same rule as the script's Load-list entries.
+PZBackup.SALTOS = { { "5min", 300, "jogo" }, { "10min", 600, "jogo" }, { "1h", 3600, "jogo" }, { "1d", 86400, "relogio" } }
+
+-- Is backup b at least seg seconds older than the reference backup ref?
+-- Each is { t = calendar seconds, j = play seconds or nil }. Play time when both have it.
+function PZBackup.antigoOSuficiente(ref, b, seg, modo)
+    if modo == "jogo" and ref.j and b.j then return b.j <= ref.j - seg end
+    return b.t <= ref.t - seg
+end
 
 ------------------------------------------------------------------------
 -- Closes the game so the script can restore
@@ -325,6 +337,7 @@ function PZBackupJanela:createChildren()
         b:initialise()
         b.rotulo = PZBackup.T("salto_" .. s[1])
         b.seg = s[2]
+        b.modo = s[3]
         self:addChild(b)
         table.insert(self.btnSaltos, b)
         xSalto = xSalto + 88
@@ -417,15 +430,17 @@ function PZBackupJanela:mundoDosSaltos()
 end
 
 -- List index of the world's newest backup at least seg seconds older than its newest one
--- (the list is newest first)
-function PZBackupJanela:alvoDoSalto(mm, seg)
+-- (the list is newest first; modo = "jogo" or "relogio", see PZBackup.SALTOS)
+function PZBackupJanela:alvoDoSalto(mm, seg, modo)
     local ref = nil
     for i, it in ipairs(self.lista.items) do
         if PZBackup.mundoDoNome(it.item) == mm then
             local t = PZBackup.segundosDoNome(it.item)
             if t then
-                ref = ref or t
-                if t <= ref - seg then return i end
+                local det = self.detalhes[it.item]
+                local b = { t = t, j = det and tonumber(det.tempo_jogo or "") or nil }
+                if not ref then ref = b
+                elseif PZBackup.antigoOSuficiente(ref, b, seg, modo) then return i end
             end
         end
     end
@@ -439,7 +454,7 @@ function PZBackupJanela:atualizarSaltos()
     self.chaveSaltos = chave
     local mm = self:mundoDosSaltos()
     for _, b in ipairs(self.btnSaltos) do
-        b.alvo = mm and self:alvoDoSalto(mm, b.seg) or nil
+        b.alvo = mm and self:alvoDoSalto(mm, b.seg, b.modo) or nil
         b:setEnable(b.alvo ~= nil)
         if b.alvo then
             b:setTooltip(PZBackup.T("jan_salto_dica", self.lista.items[b.alvo].rotuloBase))
