@@ -45,7 +45,12 @@ PZBackup.ARQ_FIXAR     = "pzbackup_fixar.txt"
 PZBackup.ARQ_DETALHES  = "pzbackup_detalhes.txt"
 PZBackup.ARQ_PERIGO    = "pzbackup_perigo.txt"
 PZBackup.ARQ_ATALHOS   = "pzbackup_atalhos.txt"
+PZBackup.ARQ_MOVIMENTO = "pzbackup_movimento.txt"  -- first movement of the session (Unix time; empty = none yet)
+PZBackup.ARQ_ULTIMO    = "pzbackup_ultimo.txt"     -- Unix time of the last backup taken by the script
+PZBackup.ARQ_VISTO     = "pzbackup_visto.txt"      -- version whose "what's new" window was already shown
+PZBackup.ARQ_ICONE     = "pzbackup_icone.txt"      -- position of the backup icon on screen
 PZBackup.URL           = "github.com/ahlrodrigues/PZBackup"   -- where to get the script
+PZBackup.URL_WORKSHOP  = "https://steamcommunity.com/sharedfiles/filedetails/?id=3821180981"  -- mod page on the Steam Workshop
 
 local TECLA_BACKUP_PADRAO    = Keyboard.KEY_F8
 local TECLA_RESTAURAR_PADRAO = Keyboard.KEY_F9
@@ -651,6 +656,39 @@ local function lerStatus()
 end
 
 ------------------------------------------------------------------------
+-- First movement of the session: the script starts the automatic backups
+-- 5 min after it. Read about every 0.5 s; the first 10 s after loading only set the baseline.
+------------------------------------------------------------------------
+local inicioSessao = 0
+local movimentoAvisado = false
+local posicaoAnterior = nil
+local contadorMovimento = 0
+local function detectarMovimento()
+    if movimentoAvisado then return end
+    contadorMovimento = contadorMovimento + 1
+    if contadorMovimento < INTERVALO_LEITURA then return end
+    contadorMovimento = 0
+    local p = getPlayer()
+    if not p or p:isDead() then return end
+    local x, y = p:getX(), p:getY()
+    if not posicaoAnterior or PZBackup.agora() - inicioSessao < 10 then
+        posicaoAnterior = { x = x, y = y }
+        return
+    end
+    if math.abs(x - posicaoAnterior.x) < 0.3 and math.abs(y - posicaoAnterior.y) < 0.3 then return end
+    movimentoAvisado = true
+    PZBackup.gravar(PZBackup.ARQ_MOVIMENTO, tostring(PZBackup.agora()) .. "\n")
+end
+
+-- A new world can load without restarting the game: the cycle starts over for it
+Events.OnGameStart.Add(function()
+    inicioSessao = PZBackup.agora()
+    movimentoAvisado = false
+    posicaoAnterior = nil
+    PZBackup.gravar(PZBackup.ARQ_MOVIMENTO, "")
+end)
+
+------------------------------------------------------------------------
 -- Events
 ------------------------------------------------------------------------
 Events.OnGameStart.Add(marcarVivo)
@@ -682,6 +720,7 @@ Events.OnPlayerDeath.Add(aoMorrer)
 Events.OnTick.Add(lerStatus)
 Events.OnTick.Add(verificarPerigo)
 Events.OnTick.Add(contarTempoJogo)
+Events.OnTick.Add(detectarMovimento)
 
 print("[PZBackup] " .. PZBackup.VERSAO .. " loaded - backup key: " .. tostring(Keyboard.getKeyName(tecla(opcaoBackup, TECLA_BACKUP_PADRAO)))
     .. ", restore key: " .. tostring(Keyboard.getKeyName(tecla(opcaoRestaurar, TECLA_RESTAURAR_PADRAO))))

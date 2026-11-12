@@ -1,6 +1,6 @@
 #!/bin/bash
 # pz-backup.sh — automatic and manual save backups for Project Zomboid (Linux)
-# Version 1.6.0 — https://github.com/ahlrodrigues/PZBackup — MIT License
+# Version 1.7.0 — https://github.com/ahlrodrigues/PZBackup — MIT License
 #
 # Requires: bash. Recommended: python3 (beeps and players.db death check)
 #           and paplay/pw-play/aplay (sound). Without python3 backups still work.
@@ -22,7 +22,7 @@
 #                      (also serves the PZ Backup mod's keys and restore window)
 #   Older Portuguese command names still work: jogo = game, limpar = clean.
 
-VERSION="1.6.0"                           # updated by tools/bump-version.sh
+VERSION="1.7.0"                           # updated by tools/bump-version.sh
 
 # ---------------- Settings ----------------
 INTERVAL=5                                # minutes between automatic backups
@@ -41,6 +41,8 @@ DEATH_MARGIN=""                           # auto-restore skips backups this clos
 DANGER_WAIT=""                            # postpone automatic backups while in danger:
                                           #   empty = follow the mod option (default on), 1 / 0
 DANGER_RETRY=20                           # seconds between tries while a backup is postponed
+FAIL_RETRY=30                            # seconds between tries after a failed backup
+FAIL_TRIES=10                            # tries after a failed backup, then wait for the next cycle
 KEEP_REPLACED=5                           # replaced saves kept (in total)
 REMOVE_DEAD=""                            # dead-character saves when the game closes:
                                           #   empty = follow the mod option (default: on)
@@ -393,10 +395,10 @@ copiar_backup() {
   [ -e "$alvo" ] && alvo="${alvo}-$$"     # two backups in the same second
   ant=$(anterior_do_mundo "$modo" "$mundo" "$alvo")
 
-  esperar_quieto "$origem" || avisar "$(msg "O save continuou mudando por 30 s; copiando mesmo assim" "The save kept changing for 30 s; copying anyway")" erro
+  esperar_quieto "$origem" || registrar_log "$(msg "O save continuou mudando por 30 s; copiando mesmo assim" "The save kept changing for 30 s; copying anyway")"
   if ! copiar "$origem" "$alvo" "$ant"; then
     rm -rf -- "$alvo"
-    avisar "$(msg "FALHA no backup de $mundo" "Backup FAILED for $mundo")" erro; return 1
+    registrar_log "$(msg "FALHA no backup de $mundo" "Backup FAILED for $mundo")"; return 1
   fi
   # The game may have written during the copy: wait and copy again once
   if ! copia_confere "$origem" "$alvo"; then
@@ -404,6 +406,7 @@ copiar_backup() {
     copiar "$origem" "$alvo" "$ant" && copia_confere "$origem" "$alvo" || conf=falha
   fi
   touch "$alvo"
+  [ -d "$LUA_DIR" ] && date +%s > "$LUA_DIR/pzbackup_ultimo.txt"   # cycle restarts (mod icon)
 
   guardar_info "$alvo" "$modo" "$mundo"
   novos=$(novos_mb "$alvo")
@@ -417,7 +420,7 @@ copiar_backup() {
   [ "$pin" = 1 ] && { touch "$PINS"; fixado "$(basename "$alvo")" || basename "$alvo" >> "$PINS"; }
 
   if [ "$conf" = falha ]; then
-    avisar "$(msg "Backup feito, mas a VERIFICAÇÃO falhou: $mundo ($carimbo). Prefira outro backup" "Backup done, but VERIFICATION failed: $mundo ($carimbo). Prefer another backup")" erro
+    registrar_log "$(msg "Backup feito, mas a VERIFICAÇÃO falhou: $mundo ($carimbo). Prefira outro backup" "Backup done, but VERIFICATION failed: $mundo ($carimbo). Prefer another backup")"
   else
     avisar "$(msg "Backup feito: $mundo ($carimbo, $novos MB novos)" "Backup done: $mundo ($carimbo, $novos MB new)")"
   fi
@@ -446,14 +449,14 @@ espaco_ok() {
 fazer_backup() {
   local origem nota="${1:-}" perigo
   origem=$(save_atual)
-  [ -z "$origem" ] && { avisar "$(msg "Nenhum save encontrado em $SAVES" "No save found in $SAVES")" erro; return 1; }
+  [ -z "$origem" ] && { registrar_log "$(msg "Nenhum save encontrado em $SAVES" "No save found in $SAVES")"; return 1; }
   # Playing a quick-restore copy: it becomes the original world when the game closes,
   # so its backups go to the original world's list
   local mundo_real=""
   if eh_atalho "$origem"; then
     mundo_real=$(mundo_do_atalho "$origem")
     if [ -z "$mundo_real" ]; then
-      [ "$ORIGEM" = AUTO ] || avisar "$(msg "$(basename "$origem") é um atalho de restauração sem origem — backup não feito" "$(basename "$origem") is a quick-restore entry with no source — backup not taken")" erro
+      [ "$ORIGEM" = AUTO ] || registrar_log "$(msg "$(basename "$origem") é um atalho de restauração sem origem — backup não feito" "$(basename "$origem") is a quick-restore entry with no source — backup not taken")"
       return 1
     fi
   fi
@@ -482,14 +485,45 @@ fazer_backup() {
   copiar_backup "$origem" "$nota" 0 "$mundo_real"
 }
 
-# Automatic backup that keeps trying every DANGER_RETRY s while postponed
+# Start of the automatic cycle: the later of the first movement and the last backup
+# (both written by the mod / the script in Zomboid/Lua). Empty until the character moves.
+inicio_ciclo() {
+  local mov ult
+  mov=$(head -n1 "$LUA_DIR/pzbackup_movimento.txt" 2>/dev/null | tr -d '\r')
+  case "$mov" in ''|*[!0-9]*) return 0 ;; esac
+  ult=$(head -n1 "$LUA_DIR/pzbackup_ultimo.txt" 2>/dev/null | tr -d '\r')
+  case "$ult" in ''|*[!0-9]*) ult=0 ;; esac
+  if [ "$ult" -gt "$mov" ]; then echo "$ult"; else echo "$mov"; fi
+}
+
+# Writes to the log only: no sound and no message on screen
+registrar_log() {
+  echo "$1"
+  printf '%s  %-10s %s\n' "$(date '+%d/%m %H:%M:%S')" "[$ORIGEM]" "$1" >> "$DESTINO/pz-backup.log"
+  espelhar_log
+}
+
+# Automatic backup: keeps trying every DANGER_RETRY s while postponed, and after a
+# failure tries again every FAIL_RETRY s, at most FAIL_TRIES times (no endless loop)
 backup_automatico() {
-  local rc
+  local rc tentativas=0
   while true; do
     fazer_backup; rc=$?
-    [ $rc -eq 3 ] || return $rc
-    sleep "$DANGER_RETRY"
-    jogo_aberto || [ "${PZB_SEM_JOGO:-}" = 1 ] || return 3
+    if [ $rc -eq 3 ]; then
+      sleep "$DANGER_RETRY"
+      jogo_aberto || [ "${PZB_SEM_JOGO:-}" = 1 ] || return 3
+      continue
+    fi
+    # Only a failed copy is retried; death or no disk space are not
+    [ $rc -eq 1 ] || return $rc
+    tentativas=$((tentativas + 1))
+    if [ "$tentativas" -gt "$FAIL_TRIES" ]; then
+      registrar_log "$(msg "Backup falhou $FAIL_TRIES vezes seguidas; nova tentativa no próximo ciclo" "Backup failed $FAIL_TRIES times in a row; will try again on the next cycle")"
+      return 1
+    fi
+    registrar_log "$(msg "Falha no backup: nova tentativa $tentativas de $FAIL_TRIES em $FAIL_RETRY s" "Backup failed: retry $tentativas of $FAIL_TRIES in $FAIL_RETRY s")"
+    sleep "$FAIL_RETRY"
+    jogo_aberto || [ "${PZB_SEM_JOGO:-}" = 1 ] || return 1
   done
 }
 
@@ -1040,19 +1074,27 @@ case "$1" in
            verificar_atualizacao         # pinned backup of every world if Steam updated the game
            while true; do
              ORIGEM="AUTO"
+             rm -f "$LUA_DIR/pzbackup_movimento.txt" "$LUA_DIR/pzbackup_ultimo.txt"   # per launch: the first movement counts again
              promover_atalhos              # a copy played last time (if the script didn't see it close)
              atualizar_lista
              atualizar_atalhos             # game still closed: it reads the Load list on startup
              ( trap 'kill $SP 2>/dev/null; exit 0' TERM
+               PROXIMA=""                # next try after a failed backup (empty = by the last backup)
                while true; do
-                 sleep $((INTERVAL * 60)) & SP=$!; wait $SP
-                 backup_automatico         # waits while the character is in danger
+                 sleep 5 & SP=$!; wait $SP
+                 BASE=$(inicio_ciclo)    # empty until the character has moved
+                 [ -n "$BASE" ] || continue
+                 DEVIDO=$((BASE + INTERVAL * 60))
+                 [ -n "$PROXIMA" ] && [ "$PROXIMA" -gt "$DEVIDO" ] && DEVIDO=$PROXIMA
+                 [ "$(date +%s)" -ge "$DEVIDO" ] || continue
+                 backup_automatico; RC_AUTO=$?      # waits while the character is in danger
+                 if [ "$RC_AUTO" -eq 0 ]; then PROXIMA=""; else PROXIMA=$(( $(date +%s) + INTERVAL * 60 )); fi
                done ) &
              LOOP_PID=$!
              # Heartbeat for the mod + serves the backup key (every 1 s)
              ( trap 'kill $SP 2>/dev/null; exit 0' TERM
                while true; do
-                 printf '%s\n%s\n' "$(date +%s)" "$VERSION" > "$ATIVO"
+                 printf '%s\n%s\n%s\n' "$(date +%s)" "$VERSION" "$INTERVAL" > "$ATIVO"
                  if [ -f "$PEDIDO" ]; then
                    NOTA=$(sed -n 's/^nota=//p' "$PEDIDO" | head -n1 | tr -d '\r')
                    rm -f "$PEDIDO"
@@ -1063,7 +1105,8 @@ case "$1" in
                  sleep 1 & SP=$!; wait $SP
                done ) &
              MOD_PID=$!
-             avisar "$(msg "Jogo iniciado — PZ Backup $VERSION, backup automático a cada $INTERVAL min" "Game started — PZ Backup $VERSION, automatic backup every $INTERVAL min")"
+             registrar_log "$(msg "Jogo iniciado — PZ Backup $VERSION, backup automático a cada $INTERVAL min" "Game started — PZ Backup $VERSION, automatic backup every $INTERVAL min")"
+             tocar ok                      # the mod shows this inside the game (under the icon)
              "$@"; RC=$?                   # runs the game and waits for it to close
              # Stops the loops (each kills its own "sleep" on TERM)
              kill "$LOOP_PID" "$MOD_PID" 2>/dev/null

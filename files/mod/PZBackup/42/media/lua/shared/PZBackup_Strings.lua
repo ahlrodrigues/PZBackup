@@ -291,6 +291,26 @@ local TEXTOS = {
                                 en = "Log is empty. The script hasn't logged anything yet (or isn't running)." },
     log_rodape              = { pt = "Ultimas %d linhas, mais recentes no topo. Completo em BackupsSaves/pz-backup.log",
                                 en = "Last %d lines, newest first. Full log in BackupsSaves/pz-backup.log" },
+    -- "What's new" window (once per version) and backup icon
+    novidades_titulo        = { pt = "PZ Backup %s - novidades",
+                                en = "PZ Backup %s - what's new" },
+    novidades_1             = { pt = "Icone de disquete: clique para backup agora, arraste para mover",
+                                en = "Floppy icon: click to back up now, drag to move" },
+    novidades_2             = { pt = "Ciclo de 5 min desde o primeiro movimento; o icone mostra as partes",
+                                en = "5-min cycle from your first move; the icon shows the parts" },
+    novidades_3             = { pt = "Falha no backup: so no log, nova tentativa a cada 30 s (ate 10x)",
+                                en = "Backup failure: logged only, retried every 30 s (up to 10x)" },
+    novidades_obrigado      = { pt = "Obrigado por usar o PZ Backup! Avalie e envie seu feedback.",
+                                en = "Thanks for using PZ Backup! Rate it and send your feedback." },
+    novidades_botao_workshop = { pt = "Abrir na Workshop",
+                                en = "Open on Workshop" },
+    icone_pedido = { pt = "Backup solicitado",
+                     en = "Backup requested" },
+    icone_feito  = { pt = "Backup concluido",
+                     en = "Backup completed" },
+    -- Message under the icon at game start (7 s)
+    aviso_inicio            = { pt = "PZ Backup %s - backup automatico a cada %s min",
+                                en = "PZ Backup %s - automatic backup every %s min" },
 }
 
 -- Language: Options > Mods > PZ Backup > Language

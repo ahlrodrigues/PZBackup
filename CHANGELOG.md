@@ -3,6 +3,26 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org/).
 
+## [1.7.0] - 2026-11-12
+
+### Added
+- **Backup icon on screen.** A floppy disk, as on the mod cover, split in 5 parts. Each minute of
+  the cycle lights one part; when all 5 are lit the automatic backup is taken and the disk turns
+  fully coloured and pulses. Click it to back up now; drag it to move it. The first run after each
+  update puts it in the centre of the screen; after that it keeps the place you left it.
+- **Messages under the icon**: "Backup requested" when you click it, "Backup completed" when a
+  backup finishes, and the start message (version and interval) for 7 seconds when the game loads.
+- **"What's new" window**, once per version, with an *Open on Workshop* button that opens the
+  mod's Steam Workshop page.
+
+### Changed
+- **The automatic cycle starts at the first movement of each game session** and counts real time
+  from there. It doesn't pause while the character stands still, and it restarts after every backup.
+- **Failed automatic backups (Linux script)** are retried every 30 seconds, at most 10 times, and
+  then wait for the next cycle. Failures and warnings (such as "the save kept changing") go to the
+  log only, not to the screen.
+- The start message appears under the icon instead of as a desktop notification.
+
 ## [1.6.0] - 2026-11-07
 
 ### Changed
@@ -236,6 +256,7 @@ First public release.
 - Installers for Linux (native and Flatpak Steam) and Windows 10/11.
 - In-game warning, with the repository address, when the script isn't installed.
 
+[1.7.0]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.7.0
 [1.6.0]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.6.0
 [1.5.0]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.5.0
 [1.4.1]: https://github.com/ahlrodrigues/PZBackup/releases/tag/v1.4.1

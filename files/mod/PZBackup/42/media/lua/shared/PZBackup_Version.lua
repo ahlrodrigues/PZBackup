@@ -6,4 +6,4 @@
 ]]
 
 PZBackup = PZBackup or {}
-PZBackup.VERSAO = "1.6.0"
+PZBackup.VERSAO = "1.7.0"
